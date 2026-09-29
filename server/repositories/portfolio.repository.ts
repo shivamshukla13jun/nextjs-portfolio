@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { connectToDatabase, isDatabaseConnected } from '../../lib/db/mongodb.ts';
 import { MemoryRepository, memoryStore } from '../../lib/db/memory-fallback.ts';
 import {
@@ -30,6 +31,13 @@ import type {
 } from '../../types/portfolio.ts';
 import type { Resume } from '../../types/resume.ts';
 import type { AIGenerationRecord } from '../../types/ai.ts';
+
+// Match by slug always, by _id only when the value is a valid ObjectId (avoids Mongoose CastError)
+function slugOrIdFilter(idOrSlug: string) {
+  const or: Record<string, string>[] = [{ slug: idOrSlug }];
+  if (mongoose.Types.ObjectId.isValid(idOrSlug)) or.push({ _id: idOrSlug });
+  return { $or: or };
+}
 
 export const PortfolioRepository = {
   // Profile
@@ -288,7 +296,7 @@ export const PortfolioRepository = {
     await connectToDatabase();
     if (isDatabaseConnected()) {
       try {
-        const doc = await ProjectModel.findOne({ $or: [{ slug }, { _id: slug }] }).lean();
+        const doc = await ProjectModel.findOne(slugOrIdFilter(slug)).lean();
         if (doc) {
           const d: any = doc;
           return {
@@ -364,7 +372,7 @@ export const PortfolioRepository = {
     if (isDatabaseConnected()) {
       try {
         const updated = await ProjectModel.findOneAndUpdate(
-          { $or: [{ slug: idOrSlug }, { _id: idOrSlug }] },
+          slugOrIdFilter(idOrSlug),
           { $set: data },
           { new: true }
         ).lean();
@@ -406,7 +414,7 @@ export const PortfolioRepository = {
     await connectToDatabase();
     if (isDatabaseConnected()) {
       try {
-        const res = await ProjectModel.findOneAndDelete({ $or: [{ slug: idOrSlug }, { _id: idOrSlug }] });
+        const res = await ProjectModel.findOneAndDelete(slugOrIdFilter(idOrSlug));
         if (res) return true;
       } catch (err) {
         console.warn('Mongoose deleteProject fallback', err);

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Project } from '@/types/portfolio';
 import AdminHeader from './AdminHeader';
-import { FolderGit2, Plus, Trash2, Edit2, ExternalLink, Github, Star, X, Check } from 'lucide-react';
+import { FolderGit2, Plus, Trash2, Edit2, ExternalLink, Github, Star, X, Check, ImagePlus } from 'lucide-react';
 
 interface AdminProjectsViewProps {
   projects: Project[];
@@ -30,7 +30,9 @@ export default function AdminProjectsView({ projects, onUpdated }: AdminProjects
   const [challenges, setChallenges] = useState('');
   const [results, setResults] = useState('');
   const [flow, setFlow] = useState('');
-  const [images, setImages] = useState('');
+  const [imageList, setImageList] = useState<string[]>([]);
+  const [newImageUrl, setNewImageUrl] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [architectureTree, setArchitectureTree] = useState('');
   const [category, setCategory] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -54,7 +56,8 @@ export default function AdminProjectsView({ projects, onUpdated }: AdminProjects
     setChallenges('');
     setResults('');
     setFlow('');
-    setImages('');
+    setImageList([]);
+    setNewImageUrl('');
     setArchitectureTree('');
     setCategory('');
     setStartDate('');
@@ -87,13 +90,52 @@ export default function AdminProjectsView({ projects, onUpdated }: AdminProjects
     setChallenges((p.challenges || []).join('\n'));
     setResults((p.results || []).join('\n'));
     setFlow((p.flow || []).join('\n'));
-    setImages((p.images || []).join('\n'));
+    setImageList(p.images || []);
     setArchitectureTree(p.architectureTree || '');
     setCategory(p.category || '');
     setStartDate(p.startDate || '');
     setEndDate(p.endDate || '');
     setShowAddForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const addImageUrl = () => {
+    const url = newImageUrl.trim();
+    if (!url) return;
+    setImageList((prev) => [...prev, url]);
+    setNewImageUrl('');
+  };
+
+  const removeImage = (idx: number) => setImageList((prev) => prev.filter((_, i) => i !== idx));
+
+  const handleImageUpload = async (file: File) => {
+    setUploadingImage(true);
+    try {
+      const res = await fetch('/api/files/upload', {
+        method: 'POST',
+        headers: {
+          'x-filename': encodeURIComponent(file.name),
+          'x-mimetype': file.type || 'application/octet-stream',
+          'x-category': 'project',
+        },
+        body: file,
+      });
+      const data = await res.json();
+      if (res.status === 401) {
+        setStatusMessage('Session expired — please log in again.');
+        setTimeout(() => (window.location.href = '/admin/login'), 1200);
+        return;
+      }
+      if (data.file) {
+        setImageList((prev) => [...prev, `/api/files/${data.file.id}`]);
+      } else {
+        setStatusMessage(data.error || 'Image upload failed.');
+      }
+    } catch {
+      setStatusMessage('Image upload failed.');
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -121,7 +163,7 @@ export default function AdminProjectsView({ projects, onUpdated }: AdminProjects
         challenges: toLines(challenges),
         results: toLines(results),
         flow: toLines(flow),
-        images: toLines(images),
+        images: imageList,
         architectureTree,
         category,
         startDate,
@@ -137,13 +179,17 @@ export default function AdminProjectsView({ projects, onUpdated }: AdminProjects
         body: JSON.stringify(payload),
       });
 
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setStatusMessage(editingSlugOrId ? 'Project updated successfully!' : 'Project saved successfully!');
         resetForm();
         onUpdated();
         setTimeout(() => setStatusMessage(null), 3500);
+      } else if (res.status === 401) {
+        setStatusMessage('Session expired — redirecting to login...');
+        setTimeout(() => (window.location.href = '/admin/login'), 1200);
       } else {
-        setStatusMessage('Failed to save project.');
+        setStatusMessage(`Failed to save project (${res.status}${data.error ? `: ${data.error}` : ''}).`);
       }
     } catch (err) {
       console.error(err);
@@ -162,6 +208,11 @@ export default function AdminProjectsView({ projects, onUpdated }: AdminProjects
         if (editingSlugOrId === slugOrId) resetForm();
         onUpdated();
         setTimeout(() => setStatusMessage(null), 3000);
+      } else if (res.status === 401) {
+        setStatusMessage('Session expired — redirecting to login...');
+        setTimeout(() => (window.location.href = '/admin/login'), 1200);
+      } else {
+        setStatusMessage(`Failed to delete project (${res.status}).`);
       }
     } catch (err) {
       console.error(err);
@@ -397,15 +448,79 @@ export default function AdminProjectsView({ projects, onUpdated }: AdminProjects
               />
             </div>
 
-            <div className="sm:col-span-2">
-              <label className="block text-slate-400 mb-1 font-medium">Project Images (one URL per line)</label>
-              <textarea
-                rows={3}
-                placeholder={'https://.../screenshot-1.png\n/api/files/<fileId>  (upload via Files CMS)'}
-                value={images}
-                onChange={(e) => setImages(e.target.value)}
-                className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono text-[11px] leading-relaxed"
-              />
+            <div className="sm:col-span-2 space-y-2">
+              <label className="block text-slate-400 font-medium">Project Images</label>
+
+              {imageList.map((img, i) => (
+                <div key={i} className="flex items-center gap-2 rounded border border-slate-800 bg-slate-900/60 p-1.5">
+                  <img
+                    src={img}
+                    alt={`Project image ${i + 1}`}
+                    className="h-9 w-14 shrink-0 rounded object-cover border border-slate-700 bg-slate-950"
+                    onError={(e) => ((e.target as HTMLImageElement).style.opacity = '0.3')}
+                  />
+                  <input
+                    type="text"
+                    value={img}
+                    onChange={(e) =>
+                      setImageList((prev) => prev.map((u, j) => (j === i ? e.target.value : u)))
+                    }
+                    className="flex-1 min-w-0 rounded border border-slate-700 bg-slate-900 px-2 py-1 font-mono text-[11px] text-white focus:outline-none focus:border-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeImage(i)}
+                    className="shrink-0 rounded p-1.5 text-slate-400 hover:bg-rose-950/40 hover:text-rose-400 transition-colors"
+                    title="Remove image"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+
+              <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                <input
+                  type="text"
+                  placeholder="Paste image URL (https://... or /api/files/<id>)"
+                  value={newImageUrl}
+                  onChange={(e) => setNewImageUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addImageUrl();
+                    }
+                  }}
+                  className="flex-1 rounded border border-slate-700 bg-slate-900 px-3 py-2 font-mono text-[11px] text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={addImageUrl}
+                    disabled={!newImageUrl.trim()}
+                    className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200 hover:bg-slate-700 disabled:opacity-40 transition-colors"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Add URL</span>
+                  </button>
+                  <label
+                    className={`flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white cursor-pointer hover:bg-blue-500 transition-colors ${
+                      uploadingImage ? 'opacity-50 pointer-events-none' : ''
+                    }`}
+                  >
+                    <ImagePlus className="h-3.5 w-3.5" />
+                    <span>{uploadingImage ? 'Uploading...' : 'Upload'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files?.[0]) handleImageUpload(e.target.files[0]);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
             </div>
 
             <div className="sm:col-span-2">

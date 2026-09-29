@@ -1,27 +1,11 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
-import Navbar from '@/components/public/Navbar';
-import Footer from '@/components/public/Footer';
 import ResumeRenderer from '@/components/resume/ResumeRenderer';
 import ResumePDFDownloadButton from '@/components/resume/ResumePDFDownloadButton';
-import AIWritingModal from '@/components/admin/AIWritingModal';
-import FileUploadDropzone from '@/components/admin/FileUploadDropzone';
-import AdminSidebar from '@/components/admin/AdminSidebar';
 import AdminHeader from '@/components/admin/AdminHeader';
-import AdminEducationView from '@/components/admin/AdminEducationView';
-import AdminCertificationsView from '@/components/admin/AdminCertificationsView';
-import AdminServicesView from '@/components/admin/AdminServicesView';
-import AdminBlogView from '@/components/admin/AdminBlogView';
-import AdminProfileView from '@/components/admin/AdminProfileView';
-import AdminExperienceView from '@/components/admin/AdminExperienceView';
-import AdminProjectsView from '@/components/admin/AdminProjectsView';
-import AdminSkillsView from '@/components/admin/AdminSkillsView';
-import AdminResumeBuilderView from '@/components/admin/AdminResumeBuilderView';
-import AdminFilesView from '@/components/admin/AdminFilesView';
-import AdminAIAssistantView from '@/components/admin/AdminAIAssistantView';
-import AdminMessagesView from '@/components/admin/AdminMessagesView';
-import AdminSettingsView from '@/components/admin/AdminSettingsView';
 
-import {
+import type {
   Profile,
   Skill,
   Experience,
@@ -34,20 +18,8 @@ import {
   SiteSettings,
   FileRecord,
 } from '@/types/portfolio';
-import { Resume, ResumeTemplateId, ResumeWorkItem, ResumeProjectItem } from '@/types/resume';
-import { AIGenerationRecord } from '@/types/ai';
-import {
-  SEED_PROFILE,
-  SEED_SKILLS,
-  SEED_EXPERIENCES,
-  SEED_PROJECTS,
-  SEED_EDUCATION,
-  SEED_CERTIFICATIONS,
-  SEED_SERVICES,
-  SEED_BLOGS,
-  SEED_RESUME,
-  SEED_SETTINGS,
-} from '@/lib/db/seed-data';
+import type { Resume, ResumeTemplateId } from '@/types/resume';
+import type { AIGenerationRecord } from '@/types/ai';
 
 import {
   FileText,
@@ -104,277 +76,11 @@ const RESUME_TEMPLATES: { id: ResumeTemplateId; name: string }[] = [
   { id: 'executive', name: 'Executive' },
 ];
 
-export default function App() {
-  const [currentPath, setCurrentPath] = useState(window.location.pathname || '/');
-
-  // Shared Portfolio Data initialized with Shivam Shukla's resume & LinkedIn data
-  const [profile, setProfile] = useState<Profile>(SEED_PROFILE);
-  const [skills, setSkills] = useState<Skill[]>(SEED_SKILLS);
-  const [experiences, setExperiences] = useState<Experience[]>(SEED_EXPERIENCES);
-  const [projects, setProjects] = useState<Project[]>(SEED_PROJECTS);
-  const [education, setEducation] = useState<Education[]>(SEED_EDUCATION);
-  const [certifications, setCertifications] = useState<Certification[]>(SEED_CERTIFICATIONS);
-  const [services, setServices] = useState<Service[]>(SEED_SERVICES);
-  const [blogs, setBlogs] = useState<Blog[]>(SEED_BLOGS);
-  const [resumes, setResumes] = useState<Resume[]>([SEED_RESUME]);
-  const [activeResume, setActiveResume] = useState<Resume>(SEED_RESUME);
-  const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
-  const [files, setFiles] = useState<FileRecord[]>([]);
-  const [siteSettings, setSiteSettings] = useState<SiteSettings>(SEED_SETTINGS);
-
-  const [loading, setLoading] = useState(false);
-  const [adminAuthed, setAdminAuthed] = useState<boolean | null>(null);
-
-  // Navigation listener
-  useEffect(() => {
-    const handlePopState = () => {
-      setCurrentPath(window.location.pathname);
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
-  const navigate = (path: string) => {
-    window.history.pushState({}, '', path);
-    setCurrentPath(path);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  // Initial Data Fetching from Server API
-  const loadData = async () => {
-    try {
-      const [pRes, sRes, eRes, prRes, edRes, cRes, srvRes, bRes, rRes, setRes] = await Promise.all([
-        fetch('/api/portfolio/profile').then((r) => r.json()),
-        fetch('/api/portfolio/skills').then((r) => r.json()),
-        fetch('/api/portfolio/experiences').then((r) => r.json()),
-        fetch('/api/portfolio/projects').then((r) => r.json()),
-        fetch('/api/portfolio/education').then((r) => r.json()),
-        fetch('/api/portfolio/certifications').then((r) => r.json()),
-        fetch('/api/portfolio/services').then((r) => r.json()),
-        fetch('/api/portfolio/blogs?all=true').then((r) => r.json()),
-        fetch('/api/resumes').then((r) => r.json()),
-        fetch('/api/portfolio/settings').then((r) => r.json()),
-      ]);
-
-      if (pRes.profile) setProfile(pRes.profile);
-      if (sRes.skills) setSkills(sRes.skills);
-      if (eRes.experiences) setExperiences(eRes.experiences);
-      if (prRes.projects) setProjects(prRes.projects);
-      if (edRes.education) setEducation(edRes.education);
-      if (cRes.certifications) setCertifications(cRes.certifications);
-      if (srvRes.services) setServices(srvRes.services);
-      if (bRes.blogs) setBlogs(bRes.blogs);
-      if (rRes.resumes && rRes.resumes.length > 0) {
-        setResumes(rRes.resumes);
-        const def = rRes.resumes.find((r: Resume) => r.isDefault) || rRes.resumes[0];
-        setActiveResume(def);
-      }
-      if (setRes.settings) setSiteSettings(setRes.settings);
-    } catch (err) {
-      console.error('Error fetching portfolio data:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  // Admin session check — runs when an /admin route is visited
-  useEffect(() => {
-    if (currentPath.startsWith('/admin') && adminAuthed === null) {
-      fetch('/api/auth/me')
-        .then((r) => r.json())
-        .then((d) => setAdminAuthed(Boolean(d.authenticated)))
-        .catch(() => setAdminAuthed(false));
-    }
-  }, [currentPath, adminAuthed]);
-
-  useEffect(() => {
-    if (currentPath === '/admin/login' && adminAuthed === true) {
-      navigate('/admin');
-    }
-  }, [currentPath, adminAuthed]);
-
-  const handleAdminLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-    } catch {
-      // best-effort cookie clear
-    }
-    setAdminAuthed(false);
-    navigate('/admin/login');
-  };
-
-  if (loading || !profile || !activeResume) {
-    return (
-      <div className="min-h-screen bg-[#0b0f17] text-slate-100 flex flex-col items-center justify-center space-y-3 font-mono text-xs">
-        <span className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-        <span>Initializing DevFolio & Resume Architect...</span>
-      </div>
-    );
-  }
-
-  // --- ROUTING DISPATCH ---
-  const isAdmin = currentPath.startsWith('/admin');
-
-  // Handle Admin Sub-pages
-  if (isAdmin) {
-    // Still checking session, or an authed user hitting /admin/login (effect redirects to /admin)
-    if (adminAuthed === null || (adminAuthed && currentPath === '/admin/login')) {
-      return (
-        <div className="min-h-screen bg-[#070b12] text-slate-100 flex flex-col items-center justify-center space-y-3 font-mono text-xs">
-          <span className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-          <span>Verifying admin session...</span>
-        </div>
-      );
-    }
-
-    if (!adminAuthed) {
-      return (
-        <AdminLoginView
-          onLoginSuccess={() => {
-            setAdminAuthed(true);
-            if (currentPath === '/admin/login') navigate('/admin');
-          }}
-          onBackToSite={() => navigate('/')}
-        />
-      );
-    }
-
-    return (
-      <div className="min-h-screen bg-[#070b12] text-slate-100 flex flex-col md:flex-row">
-        <AdminSidebar currentPath={currentPath} navigate={navigate} onLogout={handleAdminLogout} />
-        <div className="flex-1 flex flex-col overflow-y-auto min-w-0 max-h-screen">
-          {currentPath === '/admin' && (
-            <AdminDashboardView
-              projects={projects}
-              skills={skills}
-              experiences={experiences}
-              blogs={blogs}
-              resumes={resumes}
-              navigate={navigate}
-            />
-          )}
-          {currentPath === '/admin/profile' && <AdminProfileView profile={profile} onUpdated={loadData} />}
-          {currentPath === '/admin/experience' && <AdminExperienceView experiences={experiences} onUpdated={loadData} />}
-          {currentPath === '/admin/projects' && <AdminProjectsView projects={projects} onUpdated={loadData} />}
-          {currentPath === '/admin/skills' && <AdminSkillsView skills={skills} onUpdated={loadData} />}
-          {currentPath === '/admin/education' && <AdminEducationView education={education} onUpdated={loadData} />}
-          {currentPath === '/admin/certifications' && <AdminCertificationsView certifications={certifications} onUpdated={loadData} />}
-          {currentPath === '/admin/services' && <AdminServicesView services={services} onUpdated={loadData} />}
-          {currentPath === '/admin/blog' && <AdminBlogView blogs={blogs} onUpdated={loadData} />}
-          {currentPath === '/admin/resume-builder' && (
-            <AdminResumeBuilderView
-              resumes={resumes}
-              activeResume={activeResume}
-              portfolioExperiences={experiences}
-              portfolioProjects={projects}
-              onUpdated={loadData}
-            />
-          )}
-          {currentPath === '/admin/files' && <AdminFilesView />}
-          {currentPath === '/admin/ai-assistant' && <AdminAIAssistantView />}
-          {currentPath === '/admin/messages' && <AdminMessagesView />}
-          {currentPath === '/admin/settings' && <AdminSettingsView settings={siteSettings} onUpdated={loadData} />}
-        </div>
-      </div>
-    );
-  }
-
-  // Handle Project Detail Page (/projects/:slug)
-  if (currentPath.startsWith('/projects/') && currentPath !== '/projects') {
-    const slug = currentPath.replace('/projects/', '');
-    const project = projects.find((p) => p.slug === slug);
-    return (
-      <div className="min-h-screen bg-[#0b0f17] text-slate-100 flex flex-col">
-        <PublicHeader currentPath={currentPath} navigate={navigate} />
-        <main className="flex-1">
-          {project ? (
-            <PublicProjectDetailView project={project} onBack={() => navigate('/projects')} />
-          ) : (
-            <div className="py-20 text-center text-slate-400">
-              <p>Project not found.</p>
-              <button onClick={() => navigate('/projects')} className="text-blue-400 underline mt-2 text-xs">
-                Back to projects
-              </button>
-            </div>
-          )}
-        </main>
-        <PublicFooter navigate={navigate} />
-      </div>
-    );
-  }
-
-  // Handle Blog Detail Page (/blog/:slug)
-  if (currentPath.startsWith('/blog/') && currentPath !== '/blog') {
-    const slug = currentPath.replace('/blog/', '');
-    const blog = blogs.find((b) => b.slug === slug);
-    return (
-      <div className="min-h-screen bg-[#0b0f17] text-slate-100 flex flex-col">
-        <PublicHeader currentPath={currentPath} navigate={navigate} />
-        <main className="flex-1">
-          {blog ? (
-            <PublicBlogDetailView blog={blog} onBack={() => navigate('/blog')} />
-          ) : (
-            <div className="py-20 text-center text-slate-400">
-              <p>Article not found.</p>
-              <button onClick={() => navigate('/blog')} className="text-blue-400 underline mt-2 text-xs">
-                Back to articles
-              </button>
-            </div>
-          )}
-        </main>
-        <PublicFooter navigate={navigate} />
-      </div>
-    );
-  }
-
-  // Public Pages
-  return (
-    <div className="min-h-screen bg-[#0b0f17] text-slate-100 flex flex-col">
-      <PublicHeader currentPath={currentPath} navigate={navigate} />
-
-      <main className="flex-1">
-        {currentPath === '/' && (
-          <PublicHomeView
-            profile={profile}
-            projects={projects}
-            skills={skills}
-            experiences={experiences}
-            services={services}
-            blogs={blogs}
-            navigate={navigate}
-          />
-        )}
-        {currentPath === '/about' && (
-          <PublicAboutView profile={profile} education={education} certifications={certifications} />
-        )}
-        {currentPath === '/experience' && <PublicExperienceView experiences={experiences} />}
-        {currentPath === '/projects' && <PublicProjectsView projects={projects} navigate={navigate} />}
-        {currentPath === '/skills' && <PublicSkillsView skills={skills} />}
-        {currentPath === '/services' && <PublicServicesView services={services} navigate={navigate} />}
-        {currentPath === '/blog' && <PublicBlogView blogs={blogs.filter((b) => b.published)} navigate={navigate} />}
-        {currentPath === '/contact' && <PublicContactView />}
-        {currentPath === '/resume' && (
-          <PublicResumeView
-            resumes={resumes}
-            defaultResume={activeResume}
-          />
-        )}
-      </main>
-
-      <PublicFooter navigate={navigate} />
-    </div>
-  );
-}
-
 // -------------------------------------------------------------
 // PUBLIC HEADER & FOOTER
 // -------------------------------------------------------------
 
-function PublicHeader({ currentPath, navigate }: { currentPath: string; navigate: (p: string) => void }) {
+export function PublicHeader({ currentPath, navigate }: { currentPath: string; navigate: (p: string) => void }) {
   const [open, setOpen] = useState(false);
 
   const links = [
@@ -472,7 +178,7 @@ function PublicHeader({ currentPath, navigate }: { currentPath: string; navigate
   );
 }
 
-function PublicFooter({ navigate }: { navigate: (p: string) => void }) {
+export function PublicFooter({ navigate }: { navigate: (p: string) => void }) {
   return (
     <footer className="border-t border-slate-800/80 bg-[#090d14] text-slate-400 no-print py-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-8">
@@ -534,7 +240,7 @@ function PublicFooter({ navigate }: { navigate: (p: string) => void }) {
 // -------------------------------------------------------------
 // PUBLIC HOME VIEW
 // -------------------------------------------------------------
-function PublicHomeView({
+export function PublicHomeView({
   profile,
   projects,
   skills,
@@ -755,7 +461,7 @@ function PublicHomeView({
 // -------------------------------------------------------------
 // PUBLIC ABOUT VIEW
 // -------------------------------------------------------------
-function PublicAboutView({ profile, education, certifications }: { profile: Profile; education: Education[]; certifications: Certification[] }) {
+export function PublicAboutView({ profile, education, certifications }: { profile: Profile; education: Education[]; certifications: Certification[] }) {
   return (
     <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-16 space-y-12">
       <div>
@@ -820,7 +526,7 @@ function PublicAboutView({ profile, education, certifications }: { profile: Prof
 // -------------------------------------------------------------
 // PUBLIC EXPERIENCE VIEW
 // -------------------------------------------------------------
-function PublicExperienceView({ experiences }: { experiences: Experience[] }) {
+export function PublicExperienceView({ experiences }: { experiences: Experience[] }) {
   return (
     <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-16 space-y-12">
       <div>
@@ -872,7 +578,7 @@ function PublicExperienceView({ experiences }: { experiences: Experience[] }) {
 // -------------------------------------------------------------
 // PUBLIC PROJECTS VIEW & DETAIL VIEW
 // -------------------------------------------------------------
-function PublicProjectsView({ projects, navigate }: { projects: Project[]; navigate: (p: string) => void }) {
+export function PublicProjectsView({ projects, navigate }: { projects: Project[]; navigate: (p: string) => void }) {
   const [search, setSearch] = useState('');
 
   const filtered = projects.filter(
@@ -933,7 +639,7 @@ function PublicProjectsView({ projects, navigate }: { projects: Project[]; navig
   );
 }
 
-function PublicProjectDetailView({ project, onBack }: { project: Project; onBack: () => void }) {
+export function PublicProjectDetailView({ project, onBack }: { project: Project; onBack: () => void }) {
   return (
     <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-16 space-y-10">
       <button onClick={onBack} className="inline-flex items-center gap-1 text-xs font-mono text-slate-400 hover:text-white">
@@ -1106,7 +812,7 @@ function PublicProjectDetailView({ project, onBack }: { project: Project; onBack
 // -------------------------------------------------------------
 // PUBLIC SKILLS & SERVICES & BLOG VIEWS
 // -------------------------------------------------------------
-function PublicSkillsView({ skills }: { skills: Skill[] }) {
+export function PublicSkillsView({ skills }: { skills: Skill[] }) {
   return (
     <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-16 space-y-10">
       <div>
@@ -1143,7 +849,7 @@ function PublicSkillsView({ skills }: { skills: Skill[] }) {
   );
 }
 
-function PublicServicesView({ services, navigate }: { services: Service[]; navigate: (p: string) => void }) {
+export function PublicServicesView({ services, navigate }: { services: Service[]; navigate: (p: string) => void }) {
   return (
     <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-16 space-y-10">
       <div>
@@ -1175,7 +881,7 @@ function PublicServicesView({ services, navigate }: { services: Service[]; navig
   );
 }
 
-function PublicBlogView({ blogs, navigate }: { blogs: Blog[]; navigate: (p: string) => void }) {
+export function PublicBlogView({ blogs, navigate }: { blogs: Blog[]; navigate: (p: string) => void }) {
   return (
     <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-16 space-y-10">
       <div>
@@ -1203,7 +909,7 @@ function PublicBlogView({ blogs, navigate }: { blogs: Blog[]; navigate: (p: stri
   );
 }
 
-function PublicBlogDetailView({ blog, onBack }: { blog: Blog; onBack: () => void }) {
+export function PublicBlogDetailView({ blog, onBack }: { blog: Blog; onBack: () => void }) {
   return (
     <article className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-16 space-y-8">
       <button onClick={onBack} className="inline-flex items-center gap-1 text-xs font-mono text-slate-400 hover:text-white">
@@ -1226,7 +932,7 @@ function PublicBlogDetailView({ blog, onBack }: { blog: Blog; onBack: () => void
 // -------------------------------------------------------------
 // PUBLIC CONTACT VIEW
 // -------------------------------------------------------------
-function PublicContactView() {
+export function PublicContactView() {
   const [formData, setFormData] = useState({ name: '', email: '', subject: '', message: '' });
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -1321,7 +1027,7 @@ function PublicContactView() {
 // -------------------------------------------------------------
 // PUBLIC RESUME VIEW (Multi-template, live preview, PDF generator)
 // -------------------------------------------------------------
-function PublicResumeView({ resumes, defaultResume }: { resumes: Resume[]; defaultResume: Resume }) {
+export function PublicResumeView({ resumes, defaultResume }: { resumes: Resume[]; defaultResume: Resume }) {
   const [selectedResumeId, setSelectedResumeId] = useState(defaultResume.id);
   const [activeRes, setActiveRes] = useState<Resume>(defaultResume);
   const [template, setTemplate] = useState<ResumeTemplateId>(defaultResume.settings.template);
@@ -1434,7 +1140,7 @@ function PublicResumeView({ resumes, defaultResume }: { resumes: Resume[]; defau
 // -------------------------------------------------------------
 // ADMIN LOGIN & AUTH VIEW
 // -------------------------------------------------------------
-function AdminLoginView({ onLoginSuccess, onBackToSite }: { onLoginSuccess: () => void; onBackToSite: () => void }) {
+export function AdminLoginView({ onLoginSuccess, onBackToSite }: { onLoginSuccess: () => void; onBackToSite: () => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -1515,7 +1221,7 @@ function AdminLoginView({ onLoginSuccess, onBackToSite }: { onLoginSuccess: () =
   );
 }
 
-function AdminDashboardView({
+export function AdminDashboardView({
   projects,
   skills,
   experiences,
