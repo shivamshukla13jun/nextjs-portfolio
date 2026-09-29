@@ -1,19 +1,41 @@
 import type { NextRequest } from 'next/server';
 import { AuthService } from './services/auth.service.ts';
 
-// --- CORS: reflect request origin so any domain (incl. credentialed) can call the API ---
+// --- CORS: only the site's own origin (plus an optional allowlist) may make credentialed calls ---
 
-export function corsHeaders(origin: string | null): Record<string, string> {
+// Comma-separated extra origins, e.g. "https://example.com,https://admin.example.com"
+const EXTRA_ALLOWED_ORIGINS = [
+  process.env.NEXT_PUBLIC_APP_URL,
+  process.env.URL, // Netlify's primary site URL
+  ...(process.env.CORS_ALLOWED_ORIGINS || '').split(','),
+]
+  .map((o) => o?.trim().replace(/\/+$/, ''))
+  .filter((o): o is string => !!o);
+
+function isAllowedOrigin(req: NextRequest, origin: string): boolean {
+  if (EXTRA_ALLOWED_ORIGINS.includes(origin)) return true;
+  try {
+    const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
+    return !!host && new URL(origin).host === host;
+  } catch {
+    return false;
+  }
+}
+
+export function corsHeaders(req: NextRequest): Record<string, string> {
+  const origin = req.headers.get('origin');
+  if (!origin || !isAllowedOrigin(req, origin)) return { Vary: 'Origin' };
   return {
-    'Access-Control-Allow-Origin': origin || '*',
+    'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-filename, x-mimetype, x-category',
+    Vary: 'Origin',
   };
 }
 
 export function OPTIONS(req: NextRequest) {
-  return new Response(null, { status: 204, headers: corsHeaders(req.headers.get('origin')) });
+  return new Response(null, { status: 204, headers: corsHeaders(req) });
 }
 
 // --- Response helpers ---
@@ -21,7 +43,7 @@ export function OPTIONS(req: NextRequest) {
 export function jres(req: NextRequest, data: any, status = 200, headers: Record<string, string> = {}) {
   return Response.json(data, {
     status,
-    headers: { ...corsHeaders(req.headers.get('origin')), ...headers },
+    headers: { ...corsHeaders(req), ...headers },
   });
 }
 

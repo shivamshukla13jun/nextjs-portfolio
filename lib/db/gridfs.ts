@@ -3,15 +3,19 @@ import { GridFSBucket, ObjectId } from 'mongodb';
 import { Readable } from 'stream';
 import { memoryStore } from './memory-fallback.ts';
 import type { FileRecord } from '../../types/portfolio.ts';
-import { isDatabaseConnected } from './mongodb.ts';
+import { connectToDatabase, isDatabaseConnected } from './mongodb.ts';
+import { FileRecordModel } from '../../server/models/all-models.ts';
 
 let bucket: GridFSBucket | null = null;
+let bucketDb: unknown = null;
 
-export function getGridFSBucket(): GridFSBucket | null {
+export async function getGridFSBucket(): Promise<GridFSBucket | null> {
+  await connectToDatabase();
   if (!isDatabaseConnected() || !mongoose.connection.db) {
     return null;
   }
-  if (!bucket) {
+  if (!bucket || bucketDb !== mongoose.connection.db) {
+    bucketDb = mongoose.connection.db;
     bucket = new GridFSBucket(mongoose.connection.db as any, {
       bucketName: 'portfolio_files',
     });
@@ -28,7 +32,7 @@ export async function uploadToGridFS(
   relatedEntity?: string,
   relatedEntityId?: string
 ): Promise<FileRecord> {
-  const gfs = getGridFSBucket();
+  const gfs = await getGridFSBucket();
   const fileId = `file-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
   const meta: FileRecord = {
@@ -45,13 +49,6 @@ export async function uploadToGridFS(
     url: `/api/files/${fileId}`,
   };
 
-  // Always keep in memory store for immediate zero-latency access
-  memoryStore.files.set(fileId, {
-    id: fileId,
-    meta,
-    buffer: fileBuffer,
-  });
-
   if (gfs) {
     try {
       const uploadStream = gfs.openUploadStream(filename, {
@@ -65,22 +62,49 @@ export async function uploadToGridFS(
         },
       });
 
-      const readable = new Readable();
-      readable.push(fileBuffer);
-      readable.push(null);
-      readable.pipe(uploadStream);
+      // Wait for the write to finish — serverless functions may be frozen right after responding
+      await new Promise<void>((resolve, reject) => {
+        uploadStream.once('finish', () => resolve());
+        uploadStream.once('error', reject);
+        Readable.from([fileBuffer]).pipe(uploadStream);
+      });
+
+      await FileRecordModel.create({
+        fileId,
+        filename,
+        originalName: filename,
+        mimeType,
+        size: fileBuffer.length,
+        category,
+        ownerId,
+        relatedEntity,
+        relatedEntityId,
+        gridFSFileId: uploadStream.id,
+      });
+      return meta;
     } catch (err) {
-      console.warn('GridFS stream upload warning:', err);
+      console.warn('GridFS upload failed, keeping file in memory:', err);
     }
   }
 
+  memoryStore.files.set(fileId, {
+    id: fileId,
+    meta,
+    buffer: fileBuffer,
+  });
+
   return meta;
+}
+
+async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk as Buffer));
+  return Buffer.concat(chunks);
 }
 
 export async function downloadFromGridFS(
   fileId: string
 ): Promise<{ buffer?: Buffer; stream?: any; meta: FileRecord } | null> {
-  // Check memory store first
   const mem = memoryStore.files.get(fileId);
   if (mem) {
     return {
@@ -89,29 +113,54 @@ export async function downloadFromGridFS(
     };
   }
 
-  const gfs = getGridFSBucket();
-  if (gfs && ObjectId.isValid(fileId)) {
-    try {
-      const stream = gfs.openDownloadStream(new ObjectId(fileId));
-      return {
-        stream,
-        meta: {
-          id: fileId,
-          filename: 'download',
-          originalName: 'download',
-          mimeType: 'application/octet-stream',
-          size: 0,
-          category: 'other',
-          uploadedAt: new Date().toISOString(),
-          url: `/api/files/${fileId}`,
-        },
-      };
-    } catch (e) {
-      return null;
-    }
-  }
+  const gfs = await getGridFSBucket();
+  if (!gfs) return null;
 
-  return null;
+  try {
+    const record: any = await FileRecordModel.findOne({ fileId }).lean();
+    let gridId: ObjectId | null = record?.gridFSFileId ?? null;
+    if (!gridId) {
+      // Files uploaded before metadata records existed: find them via GridFS metadata or raw ObjectId
+      const [file] = await gfs
+        .find(ObjectId.isValid(fileId) ? { _id: new ObjectId(fileId) } : { 'metadata.customFileId': fileId })
+        .limit(1)
+        .toArray();
+      if (!file) return null;
+      gridId = file._id;
+      if (!record) {
+        return {
+          buffer: await streamToBuffer(gfs.openDownloadStream(gridId)),
+          meta: {
+            id: fileId,
+            filename: file.filename,
+            originalName: file.filename,
+            mimeType: (file.metadata as any)?.mimeType || 'application/octet-stream',
+            size: file.length,
+            category: (file.metadata as any)?.category || 'other',
+            uploadedAt: file.uploadDate.toISOString(),
+            url: `/api/files/${fileId}`,
+          },
+        };
+      }
+    }
+
+    return {
+      buffer: await streamToBuffer(gfs.openDownloadStream(gridId)),
+      meta: {
+        id: fileId,
+        filename: record.filename,
+        originalName: record.originalName,
+        mimeType: record.mimeType,
+        size: record.size,
+        category: record.category,
+        uploadedAt: new Date(record.createdAt).toISOString(),
+        url: `/api/files/${fileId}`,
+      },
+    };
+  } catch (e) {
+    console.warn('GridFS download failed:', e);
+    return null;
+  }
 }
 
 export async function deleteFromGridFS(fileId: string): Promise<boolean> {
@@ -121,11 +170,15 @@ export async function deleteFromGridFS(fileId: string): Promise<boolean> {
     deleted = true;
   }
 
-  const gfs = getGridFSBucket();
-  if (gfs && ObjectId.isValid(fileId)) {
+  const gfs = await getGridFSBucket();
+  if (gfs) {
     try {
-      await gfs.delete(new ObjectId(fileId));
-      deleted = true;
+      const record: any = await FileRecordModel.findOneAndDelete({ fileId }).lean();
+      const gridId = record?.gridFSFileId ?? (ObjectId.isValid(fileId) ? new ObjectId(fileId) : null);
+      if (gridId) {
+        await gfs.delete(gridId);
+        deleted = true;
+      }
     } catch (e) {
       // ignore
     }

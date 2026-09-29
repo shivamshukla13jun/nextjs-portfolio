@@ -12,7 +12,7 @@ export const GET = handle(async (req, ctx) => {
   return new Response(resFile.buffer as unknown as BodyInit, {
     status: 200,
     headers: {
-      ...corsHeaders(req.headers.get('origin')),
+      ...corsHeaders(req),
       'Content-Type': resFile.meta.mimeType || 'application/octet-stream',
       'Content-Length': resFile.meta.size.toString(),
     },

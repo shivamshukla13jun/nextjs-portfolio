@@ -4,7 +4,7 @@ const MONGODB_URI = process.env.MONGODB_URI;
 
 interface MongooseCache {
   conn: typeof mongoose | null;
-  promise: Promise<typeof mongoose> | null;
+  promise: Promise<typeof mongoose | null> | null;
   hasAttempted: boolean;
   isConnected: boolean;
 }
@@ -13,16 +13,18 @@ declare global {
   var __mongooseCache: MongooseCache | undefined;
 }
 
-const cached: MongooseCache = global.__mongooseCache || {
+// Cache on the global in every environment so warm serverless invocations reuse the connection
+const cached: MongooseCache = (global.__mongooseCache ??= {
   conn: null,
   promise: null,
   hasAttempted: false,
   isConnected: false,
-};
+});
 
-if (process.env.NODE_ENV !== 'production') {
-  global.__mongooseCache = cached;
-}
+// Minimum delay between reconnection attempts after a failure, so a down cluster
+// doesn't add the selection timeout to every request
+const RETRY_COOLDOWN_MS = 10_000;
+let lastFailureAt = 0;
 
 export async function connectToDatabase(): Promise<typeof mongoose | null> {
   if (!MONGODB_URI) {
@@ -38,6 +40,8 @@ export async function connectToDatabase(): Promise<typeof mongoose | null> {
   }
 
   if (!cached.promise) {
+    if (Date.now() - lastFailureAt < RETRY_COOLDOWN_MS) return null;
+
     const opts = {
       bufferCommands: false,
       serverSelectionTimeoutMS: 2500, // Quick timeout to fallback smoothly
@@ -53,17 +57,15 @@ export async function connectToDatabase(): Promise<typeof mongoose | null> {
       .catch((err) => {
         console.warn('⚠️ MongoDB connection attempt failed. Falling back to robust memory repository store.', err.message);
         cached.isConnected = false;
-        return null as any;
+        lastFailureAt = Date.now();
+        // Clear the failed attempt so the next request retries instead of reusing it forever
+        cached.promise = null;
+        return null;
       });
   }
 
-  try {
-    cached.conn = await cached.promise;
-    return cached.conn;
-  } catch (e) {
-    cached.conn = null;
-    return null;
-  }
+  cached.conn = await cached.promise;
+  return cached.conn;
 }
 
 export function isDatabaseConnected(): boolean {

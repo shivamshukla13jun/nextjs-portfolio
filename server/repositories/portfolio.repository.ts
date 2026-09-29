@@ -15,7 +15,16 @@ import {
   ResumeModel,
   FileRecordModel,
   AIGenerationModel,
+  AnalyticsCounterModel,
 } from '../models/all-models.ts';
+import {
+  SEED_EDUCATION,
+  SEED_CERTIFICATIONS,
+  SEED_SERVICES,
+  SEED_BLOGS,
+  SEED_RESUME,
+  SEED_SETTINGS,
+} from '../../lib/db/seed-data.ts';
 import type {
   Profile,
   Skill,
@@ -38,6 +47,87 @@ function slugOrIdFilter(idOrSlug: string) {
   if (mongoose.Types.ObjectId.isValid(idOrSlug)) or.push({ _id: idOrSlug });
   return { $or: or };
 }
+
+function isObjectId(id: string) {
+  return mongoose.Types.ObjectId.isValid(id);
+}
+
+// Convert a lean Mongoose document into the API shape: `_id` -> `id`, ISO timestamps, no `__v`
+function toPlain<T>(doc: any): T {
+  const { _id, __v, createdAt, updatedAt, ...rest } = doc;
+  return {
+    ...rest,
+    id: _id.toString(),
+    ...(createdAt && { createdAt: new Date(createdAt).toISOString() }),
+    ...(updatedAt && { updatedAt: new Date(updatedAt).toISOString() }),
+  } as T;
+}
+
+function stripId<T extends { id?: string }>(data: T): Omit<T, 'id'> {
+  const { id, ...rest } = data;
+  return rest;
+}
+
+// Run against MongoDB when connected; otherwise (or on a DB error) use the in-memory store
+async function withDb<T>(label: string, dbFn: () => Promise<T>, memFn: () => Promise<T>): Promise<T> {
+  await connectToDatabase();
+  if (isDatabaseConnected()) {
+    try {
+      return await dbFn();
+    } catch (err) {
+      console.warn(`Mongoose ${label} failed, fallback to memory`, err);
+    }
+  }
+  return memFn();
+}
+
+// Populate an empty collection with the seed content once, so the DB becomes the source of truth
+const seeded = new Map<string, Promise<void>>();
+function seedOnce(model: any, docs: any[]): Promise<void> {
+  const name = model.modelName as string;
+  if (!seeded.has(name)) {
+    const p = (async () => {
+      if ((await model.estimatedDocumentCount()) === 0 && docs.length > 0) {
+        await model.insertMany(docs.map((d) => stripId(d)));
+      }
+    })().catch((err) => {
+      seeded.delete(name);
+      throw err;
+    });
+    seeded.set(name, p);
+  }
+  return seeded.get(name)!;
+}
+
+// Generic CRUD for collections that use plain ObjectId ids
+function crud<T extends { id: string }>(model: any, seed: T[], sort: Record<string, 1 | -1> = { createdAt: 1 }) {
+  return {
+    async list(): Promise<T[]> {
+      await seedOnce(model, seed);
+      const docs = await model.find().sort(sort).lean();
+      return docs.map((d: any) => toPlain<T>(d));
+    },
+    async add(data: Omit<T, 'id'>): Promise<T> {
+      const created = await model.create(stripId(data as any));
+      return toPlain<T>(created.toObject());
+    },
+    async update(id: string, data: Partial<T>): Promise<T | null> {
+      if (!isObjectId(id)) return null;
+      const updated = await model.findByIdAndUpdate(id, { $set: stripId(data as any) }, { new: true }).lean();
+      return updated ? toPlain<T>(updated) : null;
+    },
+    async remove(id: string): Promise<boolean> {
+      if (!isObjectId(id)) return false;
+      return !!(await model.findByIdAndDelete(id));
+    },
+  };
+}
+
+const educationDb = crud<Education>(EducationModel, SEED_EDUCATION);
+const certificationsDb = crud<Certification>(CertificationModel, SEED_CERTIFICATIONS);
+const servicesDb = crud<Service>(ServiceModel, SEED_SERVICES);
+
+const ANALYTICS_KEY = 'global';
 
 export const PortfolioRepository = {
   // Profile
@@ -425,120 +515,305 @@ export const PortfolioRepository = {
 
   // Education
   async getEducation(): Promise<Education[]> {
-    return MemoryRepository.getEducation();
+    return withDb('getEducation', () => educationDb.list(), () => MemoryRepository.getEducation());
   },
   async addEducation(edu: Omit<Education, 'id'>): Promise<Education> {
-    return MemoryRepository.addEducation(edu);
+    return withDb('addEducation', () => educationDb.add(edu), () => MemoryRepository.addEducation(edu));
   },
   async updateEducation(id: string, data: Partial<Education>): Promise<Education | null> {
-    return MemoryRepository.updateEducation(id, data);
+    return withDb('updateEducation', () => educationDb.update(id, data), () => MemoryRepository.updateEducation(id, data));
   },
   async deleteEducation(id: string): Promise<boolean> {
-    return MemoryRepository.deleteEducation(id);
+    return withDb('deleteEducation', () => educationDb.remove(id), () => MemoryRepository.deleteEducation(id));
   },
 
   // Certifications
   async getCertifications(): Promise<Certification[]> {
-    return MemoryRepository.getCertifications();
+    return withDb('getCertifications', () => certificationsDb.list(), () => MemoryRepository.getCertifications());
   },
   async addCertification(cert: Omit<Certification, 'id'>): Promise<Certification> {
-    return MemoryRepository.addCertification(cert);
+    return withDb('addCertification', () => certificationsDb.add(cert), () => MemoryRepository.addCertification(cert));
   },
   async updateCertification(id: string, data: Partial<Certification>): Promise<Certification | null> {
-    return MemoryRepository.updateCertification(id, data);
+    return withDb(
+      'updateCertification',
+      () => certificationsDb.update(id, data),
+      () => MemoryRepository.updateCertification(id, data)
+    );
   },
   async deleteCertification(id: string): Promise<boolean> {
-    return MemoryRepository.deleteCertification(id);
+    return withDb('deleteCertification', () => certificationsDb.remove(id), () => MemoryRepository.deleteCertification(id));
   },
 
   // Services
   async getServices(): Promise<Service[]> {
-    return MemoryRepository.getServices();
+    return withDb('getServices', () => servicesDb.list(), () => MemoryRepository.getServices());
   },
   async addService(service: Omit<Service, 'id'>): Promise<Service> {
-    return MemoryRepository.addService(service);
+    return withDb('addService', () => servicesDb.add(service), () => MemoryRepository.addService(service));
   },
   async updateService(id: string, data: Partial<Service>): Promise<Service | null> {
-    return MemoryRepository.updateService(id, data);
+    return withDb('updateService', () => servicesDb.update(id, data), () => MemoryRepository.updateService(id, data));
   },
   async deleteService(id: string): Promise<boolean> {
-    return MemoryRepository.deleteService(id);
+    return withDb('deleteService', () => servicesDb.remove(id), () => MemoryRepository.deleteService(id));
   },
 
   // Blogs
   async getBlogs(publishedOnly = true): Promise<Blog[]> {
-    return MemoryRepository.getBlogs(publishedOnly);
+    return withDb(
+      'getBlogs',
+      async () => {
+        await seedOnce(BlogModel, SEED_BLOGS);
+        const docs = await BlogModel.find(publishedOnly ? { published: true } : {})
+          .sort({ publishedAt: -1 })
+          .lean();
+        return docs.map((d: any) => toPlain<Blog>(d));
+      },
+      () => MemoryRepository.getBlogs(publishedOnly)
+    );
   },
   async getBlogBySlug(slug: string): Promise<Blog | null> {
-    return MemoryRepository.getBlogBySlug(slug);
+    return withDb(
+      'getBlogBySlug',
+      async () => {
+        await seedOnce(BlogModel, SEED_BLOGS);
+        const doc = await BlogModel.findOne(slugOrIdFilter(slug)).lean();
+        return doc ? toPlain<Blog>(doc) : null;
+      },
+      () => MemoryRepository.getBlogBySlug(slug)
+    );
   },
   async addBlog(blog: Omit<Blog, 'id'>): Promise<Blog> {
-    return MemoryRepository.addBlog(blog);
+    return withDb(
+      'addBlog',
+      async () => toPlain<Blog>((await BlogModel.create(stripId(blog as Blog))).toObject()),
+      () => MemoryRepository.addBlog(blog)
+    );
   },
   async updateBlog(idOrSlug: string, data: Partial<Blog>): Promise<Blog | null> {
-    return MemoryRepository.updateBlog(idOrSlug, data);
+    return withDb(
+      'updateBlog',
+      async () => {
+        const updated = await BlogModel.findOneAndUpdate(
+          slugOrIdFilter(idOrSlug),
+          { $set: stripId(data) },
+          { new: true }
+        ).lean();
+        return updated ? toPlain<Blog>(updated) : null;
+      },
+      () => MemoryRepository.updateBlog(idOrSlug, data)
+    );
   },
   async deleteBlog(idOrSlug: string): Promise<boolean> {
-    return MemoryRepository.deleteBlog(idOrSlug);
+    return withDb(
+      'deleteBlog',
+      async () => !!(await BlogModel.findOneAndDelete(slugOrIdFilter(idOrSlug))),
+      () => MemoryRepository.deleteBlog(idOrSlug)
+    );
   },
 
   // Resumes
   async getResumes(): Promise<Resume[]> {
-    return MemoryRepository.getResumes();
+    return withDb(
+      'getResumes',
+      async () => {
+        await seedOnce(ResumeModel, [SEED_RESUME]);
+        const docs = await ResumeModel.find().sort({ updatedAt: -1 }).lean();
+        return docs.map((d: any) => toPlain<Resume>(d));
+      },
+      () => MemoryRepository.getResumes()
+    );
   },
   async getResumeById(id: string): Promise<Resume | null> {
-    return MemoryRepository.getResumeById(id);
+    return withDb(
+      'getResumeById',
+      async () => {
+        await seedOnce(ResumeModel, [SEED_RESUME]);
+        const doc = await ResumeModel.findOne(slugOrIdFilter(id)).lean();
+        return doc ? toPlain<Resume>(doc) : null;
+      },
+      () => MemoryRepository.getResumeById(id)
+    );
   },
   async saveResume(resume: Partial<Resume> & { id?: string }): Promise<Resume> {
-    return MemoryRepository.saveResume(resume);
+    return withDb(
+      'saveResume',
+      async () => {
+        const { createdAt, updatedAt, ...data } = stripId(resume) as Partial<Resume>;
+        if (resume.id && isObjectId(resume.id)) {
+          const updated = await ResumeModel.findByIdAndUpdate(resume.id, { $set: data }, { new: true }).lean();
+          if (updated) return toPlain<Resume>(updated);
+        }
+        return toPlain<Resume>((await ResumeModel.create(data)).toObject());
+      },
+      () => MemoryRepository.saveResume(resume)
+    );
   },
   async deleteResume(id: string): Promise<boolean> {
-    return MemoryRepository.deleteResume(id);
+    return withDb(
+      'deleteResume',
+      async () => isObjectId(id) && !!(await ResumeModel.findByIdAndDelete(id)),
+      () => MemoryRepository.deleteResume(id)
+    );
   },
 
   // Settings
   async getSettings(): Promise<SiteSettings> {
-    return MemoryRepository.getSettings();
+    return withDb(
+      'getSettings',
+      async () => {
+        const doc = await SiteSettingsModel.findOne().lean();
+        if (!doc) return MemoryRepository.getSettings();
+        const { id, createdAt, updatedAt, ...rest } = toPlain<SiteSettings & { id: string; createdAt?: string; updatedAt?: string }>(doc);
+        return { ...SEED_SETTINGS, ...rest };
+      },
+      () => MemoryRepository.getSettings()
+    );
   },
   async updateSettings(data: Partial<SiteSettings>): Promise<SiteSettings> {
-    return MemoryRepository.updateSettings(data);
+    return withDb(
+      'updateSettings',
+      async () => {
+        const { id, _id, createdAt, updatedAt, ...clean } = data as any;
+        const existing = await SiteSettingsModel.findOne().lean();
+        const updated = await SiteSettingsModel.findOneAndUpdate(
+          {},
+          // First save starts from the current seed settings so nothing is lost
+          { $set: existing ? clean : { ...SEED_SETTINGS, ...clean } },
+          { new: true, upsert: true }
+        ).lean();
+        const { id: _i, createdAt: _c, updatedAt: _u, ...rest } = toPlain<any>(updated);
+        return { ...SEED_SETTINGS, ...rest } as SiteSettings;
+      },
+      () => MemoryRepository.updateSettings(data)
+    );
   },
 
   // Contact
   async getContactMessages(): Promise<ContactMessage[]> {
-    return MemoryRepository.getContactMessages();
+    return withDb(
+      'getContactMessages',
+      async () => {
+        const docs = await ContactMessageModel.find().sort({ createdAt: -1 }).lean();
+        return docs.map((d: any) => toPlain<ContactMessage>(d));
+      },
+      () => MemoryRepository.getContactMessages()
+    );
   },
   async addContactMessage(msg: Omit<ContactMessage, 'id' | 'read' | 'createdAt'>): Promise<ContactMessage> {
-    return MemoryRepository.addContactMessage(msg);
+    const { name, email, subject, message } = msg;
+    return withDb(
+      'addContactMessage',
+      async () => toPlain<ContactMessage>((await ContactMessageModel.create({ name, email, subject, message })).toObject()),
+      () => MemoryRepository.addContactMessage({ name, email, subject, message })
+    );
   },
   async markMessageRead(id: string, read = true): Promise<boolean> {
-    return MemoryRepository.markMessageRead(id, read);
+    return withDb(
+      'markMessageRead',
+      async () => isObjectId(id) && !!(await ContactMessageModel.findByIdAndUpdate(id, { $set: { read } })),
+      () => MemoryRepository.markMessageRead(id, read)
+    );
   },
   async deleteContactMessage(id: string): Promise<boolean> {
-    return MemoryRepository.deleteContactMessage(id);
+    return withDb(
+      'deleteContactMessage',
+      async () => isObjectId(id) && !!(await ContactMessageModel.findByIdAndDelete(id)),
+      () => MemoryRepository.deleteContactMessage(id)
+    );
   },
 
   // Files
   async getFiles(): Promise<FileRecord[]> {
-    return MemoryRepository.getFiles();
+    return withDb(
+      'getFiles',
+      async () => {
+        const docs = await FileRecordModel.find().sort({ createdAt: -1 }).lean();
+        return docs.map((d: any): FileRecord => ({
+          id: d.fileId,
+          filename: d.filename,
+          originalName: d.originalName,
+          mimeType: d.mimeType,
+          size: d.size,
+          category: d.category,
+          ownerId: d.ownerId,
+          relatedEntity: d.relatedEntity,
+          relatedEntityId: d.relatedEntityId,
+          uploadedAt: new Date(d.createdAt).toISOString(),
+          url: `/api/files/${d.fileId}`,
+        }));
+      },
+      () => MemoryRepository.getFiles()
+    );
   },
 
   // AI
   async recordAIGeneration(gen: Omit<AIGenerationRecord, 'id' | 'createdAt'>): Promise<AIGenerationRecord> {
-    return MemoryRepository.recordAIGeneration(gen);
+    return withDb(
+      'recordAIGeneration',
+      async () => toPlain<AIGenerationRecord>((await AIGenerationModel.create(gen)).toObject()),
+      () => MemoryRepository.recordAIGeneration(gen)
+    );
   },
   async getAIGenerations(): Promise<AIGenerationRecord[]> {
-    return MemoryRepository.getAIGenerations();
+    return withDb(
+      'getAIGenerations',
+      async () => {
+        const docs = await AIGenerationModel.find().sort({ createdAt: -1 }).limit(200).lean();
+        return docs.map((d: any) => toPlain<AIGenerationRecord>(d));
+      },
+      () => MemoryRepository.getAIGenerations()
+    );
   },
   async updateAIGenerationStatus(id: string, status: 'applied' | 'discarded'): Promise<boolean> {
-    return MemoryRepository.updateAIGenerationStatus(id, status);
+    return withDb(
+      'updateAIGenerationStatus',
+      async () => isObjectId(id) && !!(await AIGenerationModel.findByIdAndUpdate(id, { $set: { status } })),
+      () => MemoryRepository.updateAIGenerationStatus(id, status)
+    );
   },
 
   // Analytics
   async recordAnalytics(type: 'pageview' | 'resume_download' | 'project_click', path?: string): Promise<void> {
-    return MemoryRepository.recordAnalytics(type, path);
+    const field = { pageview: 'pageViews', resume_download: 'resumeDownloads', project_click: 'projectClicks' }[type];
+    if (!field) return;
+    return withDb(
+      'recordAnalytics',
+      async () => {
+        await AnalyticsCounterModel.updateOne({ key: ANALYTICS_KEY }, { $inc: { [field]: 1 } }, { upsert: true });
+      },
+      () => MemoryRepository.recordAnalytics(type, path)
+    );
   },
   async getAnalyticsSummary() {
+    await connectToDatabase();
+    if (isDatabaseConnected()) {
+      try {
+        const [counters, projects, skills, experiences, blogs, resumes, unreadMessages] = await Promise.all([
+          AnalyticsCounterModel.findOne({ key: ANALYTICS_KEY }).lean() as Promise<any>,
+          PortfolioRepository.getProjects(),
+          PortfolioRepository.getSkills(),
+          PortfolioRepository.getExperiences(),
+          PortfolioRepository.getBlogs(false),
+          PortfolioRepository.getResumes(),
+          ContactMessageModel.countDocuments({ read: false }),
+        ]);
+        return {
+          pageViews: counters?.pageViews || 0,
+          resumeDownloads: counters?.resumeDownloads || 0,
+          projectClicks: counters?.projectClicks || 0,
+          totalProjects: projects.length,
+          totalSkills: skills.length,
+          totalExperiences: experiences.length,
+          totalBlogs: blogs.length,
+          unreadMessages,
+          resumeVersionsCount: resumes.length,
+        };
+      } catch (err) {
+        console.warn('Mongoose getAnalyticsSummary fallback', err);
+      }
+    }
     return MemoryRepository.getAnalyticsSummary();
   },
 };
