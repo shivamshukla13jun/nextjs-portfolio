@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import AdminHeader from './AdminHeader';
 import { Sparkles, Copy, Check, Bot, History, ArrowRight, Wand2, RefreshCw } from 'lucide-react';

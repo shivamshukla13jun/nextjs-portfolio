@@ -102,7 +102,7 @@ const ProjectSchema = new Schema(
 const ResumeSchema = new Schema(
   {
     title: { type: String, required: true },
-    slug: { type: String, required: true, index: true },
+    slug: { type: String, index: true },
     targetRole: { type: String, default: '' },
     isDefault: { type: Boolean, default: false },
     personalInfo: {
@@ -133,7 +133,8 @@ const ResumeSchema = new Schema(
       margins: { type: String, default: 'normal' },
     },
   },
-  { timestamps: true }
+  // Keep extra resume fields (technicalSkills, sectionOrder, ...) that aren't modeled explicitly
+  { timestamps: true, strict: false }
 );
 
 // Contact Message Schema
@@ -218,12 +219,14 @@ const SiteSettingsSchema = new Schema(
     allowPublicResumeDownload: { type: Boolean, default: true },
     enableBlog: { type: Boolean, default: true },
   },
-  { timestamps: true }
+  // Keep newer settings fields (enableServices, heroHeadline, ...) that aren't modeled explicitly
+  { timestamps: true, strict: false }
 );
 
 // File Record Schema
 const FileRecordSchema = new Schema(
   {
+    fileId: { type: String, index: true }, // public id used in /api/files/:id
     filename: { type: String, required: true },
     originalName: { type: String, required: true },
     mimeType: { type: String, required: true },
@@ -248,6 +251,17 @@ const AIGenerationSchema = new Schema(
   { timestamps: true }
 );
 
+// Analytics counters (single document keyed by name)
+const AnalyticsCounterSchema = new Schema(
+  {
+    key: { type: String, required: true, unique: true },
+    pageViews: { type: Number, default: 0 },
+    resumeDownloads: { type: Number, default: 0 },
+    projectClicks: { type: Number, default: 0 },
+  },
+  { timestamps: true }
+);
+
 // Model definitions with mongoose cache guards
 export const UserModel = mongoose.models.User || mongoose.model('User', UserSchema);
 export const ProfileModel = mongoose.models.Profile || mongoose.model('Profile', ProfileSchema);
@@ -263,3 +277,5 @@ export const BlogModel = mongoose.models.Blog || mongoose.model('Blog', BlogSche
 export const SiteSettingsModel = mongoose.models.SiteSettings || mongoose.model('SiteSettings', SiteSettingsSchema);
 export const FileRecordModel = mongoose.models.FileRecord || mongoose.model('FileRecord', FileRecordSchema);
 export const AIGenerationModel = mongoose.models.AIGeneration || mongoose.model('AIGeneration', AIGenerationSchema);
+export const AnalyticsCounterModel =
+  mongoose.models.AnalyticsCounter || mongoose.model('AnalyticsCounter', AnalyticsCounterSchema);
