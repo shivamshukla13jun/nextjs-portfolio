@@ -1,6 +1,14 @@
 // Comprehensive Resume types for DevFolio & Resume Architect Pro
 
-export type ResumeTemplateId = 'modern' | 'ats' | 'minimal' | 'two-column' | 'executive';
+export type ResumeTemplateId =
+  | 'modern'
+  | 'ats'
+  | 'minimal'
+  | 'two-column'
+  | 'executive'
+  | 'creative'
+  | 'compact'
+  | 'classic';
 
 export interface ResumeSettings {
   template: ResumeTemplateId;
@@ -14,6 +22,8 @@ export interface ResumeSettings {
 
 export interface ResumeWorkItem {
   id?: string;
+  /** ObjectId of the source Experience model this item was imported from. */
+  sourceId?: string;
   company: string;
   position: string;
   location?: string;
@@ -26,6 +36,8 @@ export interface ResumeWorkItem {
 
 export interface ResumeProjectItem {
   id?: string;
+  /** ObjectId of the source Project model this item was imported from. */
+  sourceId?: string;
   name: string;
   description?: string;
   technologies: string[];
@@ -38,6 +50,8 @@ export interface ResumeProjectItem {
 
 export interface ResumeEducationItem {
   id?: string;
+  /** ObjectId of the source Education model this item was imported from. */
+  sourceId?: string;
   degree: string;
   institution: string;
   location?: string;
@@ -51,6 +65,9 @@ export interface ResumeEducationItem {
 }
 
 export interface ResumeCertificationItem {
+  id?: string;
+  /** ObjectId of the source Certification model this item was imported from. */
+  sourceId?: string;
   name: string;
   issuer: string;
   year?: string;
@@ -59,6 +76,8 @@ export interface ResumeCertificationItem {
 export interface ResumeSkillGroup {
   category: string;
   skills: string[];
+  /** ObjectIds of the Skill models backing this group (when imported from portfolio data). */
+  sourceIds?: string[];
 }
 
 export interface Resume {

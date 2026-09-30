@@ -101,7 +101,11 @@ export function ResumeBuilderPage() {
   const [resumes, loadResumes] = useJson<Resume[]>('/api/resumes', (d) => d.resumes || []);
   const [experiences] = useJson('/api/portfolio/experiences', (d) => d.experiences || []);
   const [projects] = useJson('/api/portfolio/projects', (d) => d.projects || []);
-  if (!resumes || !experiences || !projects) return null;
+  const [education] = useJson('/api/portfolio/education', (d) => d.education || []);
+  const [skills] = useJson('/api/portfolio/skills', (d) => d.skills || []);
+  const [certifications] = useJson('/api/portfolio/certifications', (d) => d.certifications || []);
+  const [profile] = useJson('/api/portfolio/profile', (d) => d.profile);
+  if (!resumes || !experiences || !projects || !education || !skills || !certifications) return null;
   const activeResume = resumes.find((r: any) => r.isDefault) || resumes[0] || SEED_RESUME;
   return (
     <AdminResumeBuilderView
@@ -109,6 +113,10 @@ export function ResumeBuilderPage() {
       activeResume={activeResume}
       portfolioExperiences={experiences}
       portfolioProjects={projects}
+      portfolioEducation={education}
+      portfolioSkills={skills}
+      portfolioCertifications={certifications}
+      profile={profile}
       onUpdated={loadResumes}
     />
   );

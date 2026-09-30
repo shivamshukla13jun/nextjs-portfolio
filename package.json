@@ -7,7 +7,10 @@
     "dev": "next dev -p 4000",
     "build": "next build",
     "start": "next start -p 4000",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "seed": "node scripts/seed.ts",
+    "db:reseed": "node scripts/reseed-db.mjs",
+    "test:resume-refs": "node scripts/test-resume-refs.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

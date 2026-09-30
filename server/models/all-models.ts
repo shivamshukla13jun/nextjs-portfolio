@@ -26,6 +26,7 @@ const ProfileSchema = new Schema(
     linkedin: { type: String, default: '' },
     twitter: { type: String, default: '' },
     website: { type: String, default: '' },
+    headlineTags: [{ type: String }],
     yearsOfExperience: { type: Number, default: 0 },
     availability: { type: String, default: 'Available for Hire' },
     resumeFileId: { type: String, default: '' },
@@ -39,7 +40,18 @@ const SkillSchema = new Schema(
     name: { type: String, required: true, index: true },
     category: {
       type: String,
-      enum: ['Frontend', 'Backend', 'Database', 'DevOps & Cloud', 'Messaging & Caching', 'Tools & Architecture'],
+      enum: [
+        'Frontend',
+        'Backend',
+        'Database',
+        'DevOps',
+        'Cloud',
+        'Messaging',
+        'Tools',
+        'Messaging & Caching',
+        'DevOps & Cloud',
+        'Tools & Architecture',
+      ],
       required: true,
       index: true,
     },
@@ -98,44 +110,7 @@ const ProjectSchema = new Schema(
   { timestamps: true }
 );
 
-// Resume Schema
-const ResumeSchema = new Schema(
-  {
-    title: { type: String, required: true },
-    slug: { type: String, index: true },
-    targetRole: { type: String, default: '' },
-    isDefault: { type: Boolean, default: false },
-    personalInfo: {
-      fullName: String,
-      professionalTitle: String,
-      email: String,
-      phone: String,
-      location: String,
-      website: String,
-      linkedin: String,
-      github: String,
-      summary: String,
-    },
-    workExperiences: [Schema.Types.Mixed],
-    projects: [Schema.Types.Mixed],
-    education: [Schema.Types.Mixed],
-    skills: [Schema.Types.Mixed],
-    certifications: [Schema.Types.Mixed],
-    languages: [Schema.Types.Mixed],
-    customSections: [Schema.Types.Mixed],
-    settings: {
-      template: { type: String, default: 'modern' },
-      fontFamily: { type: String, default: 'Inter' },
-      fontSize: { type: String, default: 'normal' },
-      accentColor: { type: String, default: '#2563eb' },
-      spacing: { type: String, default: 'normal' },
-      pageSize: { type: String, default: 'A4' },
-      margins: { type: String, default: 'normal' },
-    },
-  },
-  // Keep extra resume fields (technicalSkills, sectionOrder, ...) that aren't modeled explicitly
-  { timestamps: true, strict: false }
-);
+
 
 // Contact Message Schema
 const ContactMessageSchema = new Schema(
@@ -218,9 +193,12 @@ const SiteSettingsSchema = new Schema(
     analyticsEnabled: { type: Boolean, default: true },
     allowPublicResumeDownload: { type: Boolean, default: true },
     enableBlog: { type: Boolean, default: true },
+    enableServices: { type: Boolean, default: true },
+    enableCertifications: { type: Boolean, default: true },
+    heroHeadline: { type: String, default: '' },
+    heroSubheadline: { type: String, default: '' },
   },
-  // Keep newer settings fields (enableServices, heroHeadline, ...) that aren't modeled explicitly
-  { timestamps: true, strict: false }
+  { timestamps: true }
 );
 
 // File Record Schema
@@ -261,7 +239,39 @@ const AnalyticsCounterSchema = new Schema(
   },
   { timestamps: true }
 );
-
+// Resume Schema
+const ResumeSchema = new Schema(
+  {
+    title: { type: String, required: true },
+    slug: { type: String, index: true },
+    targetRole: { type: String, default: '' },
+    isDefault: { type: Boolean, default: false },
+    // Each item slot accepts three shapes, resolved by the repository's hydrate/dehydrate:
+    //   1. bare ObjectId           -> live link, populated from the referenced document
+    //   2. { ref: ObjectId, ... }  -> linked item with resume-specific field overrides
+    //   3. plain object            -> embedded item with no model counterpart
+    personalInfo: { type: Schema.Types.Mixed }, // ObjectId -> Profile | { ref } | embedded
+    workExperiences: [Schema.Types.Mixed],      // ObjectId -> Experience | { ref } | embedded
+    projects: [Schema.Types.Mixed],             // ObjectId -> Project | { ref } | embedded
+    education: [Schema.Types.Mixed],            // ObjectId -> Education | { ref } | embedded
+    skills: [Schema.Types.Mixed],               // ObjectId -> Skill | { ref } | embedded { category, skills }
+    technicalSkills: [Schema.Types.Mixed],      // alias hydrated identically to `skills`
+    certifications: [Schema.Types.Mixed],       // ObjectId -> Certification | { ref } | embedded
+    languages: [Schema.Types.Mixed],
+    sectionOrder: [Schema.Types.Mixed],
+    customSections: [Schema.Types.Mixed],
+    settings: {
+      template: { type: String, default: 'modern' },
+      fontFamily: { type: String, default: 'Inter' },
+      fontSize: { type: String, default: 'normal' },
+      accentColor: { type: String, default: '#2563eb' },
+      spacing: { type: String, default: 'normal' },
+      pageSize: { type: String, default: 'A4' },
+      margins: { type: String, default: 'normal' },
+    },
+  },
+  { timestamps: true }
+);
 // Model definitions with mongoose cache guards
 export const UserModel = mongoose.models.User || mongoose.model('User', UserSchema);
 export const ProfileModel = mongoose.models.Profile || mongoose.model('Profile', ProfileSchema);

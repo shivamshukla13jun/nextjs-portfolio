@@ -1,8 +1,18 @@
 import React, { useState } from 'react';
 import { Resume, ResumeTemplateId, ResumeWorkItem, ResumeProjectItem, ResumeEducationItem } from '@/types/resume';
-import { Experience, Project } from '@/types/portfolio';
+import { Experience, Project, Education, Skill, Certification, Profile } from '@/types/portfolio';
 import AdminHeader from './AdminHeader';
 import ResumeRenderer from '../resume/ResumeRenderer';
+import {
+  experienceToResume,
+  projectToResume,
+  educationToResume,
+  certificationToResume,
+  skillsToResumeGroups,
+  buildResumeFromPortfolio,
+  setAtPath,
+  getAtPath,
+} from '@/lib/resume-utils';
 import {
   FileText,
   Save,
@@ -21,6 +31,11 @@ import {
   Wrench,
   Check,
   X,
+  Download,
+  PenLine,
+  Eye,
+  Database,
+  Award,
 } from 'lucide-react';
 
 interface AdminResumeBuilderViewProps {
@@ -28,6 +43,10 @@ interface AdminResumeBuilderViewProps {
   activeResume: Resume;
   portfolioExperiences: Experience[];
   portfolioProjects: Project[];
+  portfolioEducation: Education[];
+  portfolioSkills: Skill[];
+  portfolioCertifications: Certification[];
+  profile?: Profile | null;
   onUpdated: () => void;
 }
 
@@ -35,8 +54,11 @@ const TEMPLATES: { id: ResumeTemplateId; name: string; desc: string }[] = [
   { id: 'modern', name: 'Modern Developer', desc: 'Slick blue accent dividers, two-column skills, clean hierarchy.' },
   { id: 'ats', name: 'ATS Friendly', desc: 'Standard single-column, 100% parse-rate recruiter standard.' },
   { id: 'minimal', name: 'Minimal Professional', desc: 'Monochrome, understated typography, high information density.' },
-  { id: 'two-column', name: 'Two Column', desc: 'Sidebar for contact, skills, and education; right for experience.' },
+  { id: 'two-column', name: 'Two Column', desc: 'Dark sidebar for contact, skills, and education.' },
   { id: 'executive', name: 'Executive', desc: 'Serif headings, formal leadership tone for Staff/Lead roles.' },
+  { id: 'creative', name: 'Creative Banner', desc: 'Accent-colored header band, skill chips, timeline experience.' },
+  { id: 'compact', name: 'Compact One-Pager', desc: 'Dense layout squeezing maximum content into a single page.' },
+  { id: 'classic', name: 'Classic Traditional', desc: 'Centered serif layout for conservative industries.' },
 ];
 
 export default function AdminResumeBuilderView({
@@ -44,12 +66,17 @@ export default function AdminResumeBuilderView({
   activeResume,
   portfolioExperiences,
   portfolioProjects,
+  portfolioEducation,
+  portfolioSkills,
+  portfolioCertifications,
+  profile,
   onUpdated,
 }: AdminResumeBuilderViewProps) {
   const [current, setCurrent] = useState<Resume>(activeResume);
   const [activeTab, setActiveTab] = useState<'design' | 'personal' | 'experience' | 'projects' | 'education' | 'skills'>('design');
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [docEditMode, setDocEditMode] = useState(false);
 
   // Experience modal/inline edit
   const [editingExpIndex, setEditingExpIndex] = useState<number | null>(null);
@@ -109,6 +136,106 @@ export default function AdminResumeBuilderView({
 
   const handlePrint = () => {
     window.print();
+  };
+
+  // Inline document editing — writes a field back into the resume by dot path.
+  // Existing array fields are re-split into arrays (bullets/skills edited as comma/newline text).
+  const handleDocEdit = (path: string, value: string) => {
+    const existing = getAtPath(current, path);
+    const next = Array.isArray(existing)
+      ? value.split(/\n|,|•/).map((s) => s.trim()).filter(Boolean)
+      : value;
+    setCurrent(setAtPath(current, path, next));
+  };
+
+  // Create a brand-new resume version populated from the portfolio data models (not hardcoded).
+  const handleNewResume = async () => {
+    setSaving(true);
+    try {
+      const fresh = buildResumeFromPortfolio({
+        profile,
+        experiences: portfolioExperiences,
+        projects: portfolioProjects,
+        education: portfolioEducation,
+        skills: portfolioSkills,
+        certifications: portfolioCertifications,
+        title: `Resume — ${new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`,
+      });
+      const res = await fetch('/api/resumes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fresh),
+      });
+      const data = await res.json();
+      if (res.ok && data.resume) {
+        setCurrent(data.resume);
+        setStatusMessage('New resume created from your portfolio data.');
+        onUpdated();
+        setTimeout(() => setStatusMessage(null), 3000);
+      } else {
+        setStatusMessage('Failed to create resume.');
+      }
+    } catch {
+      setStatusMessage('Network error creating resume.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Export the rendered document as an editable Word (.doc) file.
+  const handleDownloadDoc = () => {
+    const el = document.getElementById('printable-resume');
+    if (!el) return;
+    const html = `<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">
+<head><meta charset="utf-8"><title>${current.personalInfo.fullName} — Resume</title>
+<style>
+  body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #111; max-width: 700px; margin: 24px auto; }
+  h1 { font-size: 20pt; margin-bottom: 2pt; } h2 { font-size: 12pt; margin: 12pt 0 4pt; }
+  p { margin: 0 0 6pt; } ul { margin: 4pt 0 8pt 18pt; padding: 0; } li { margin-bottom: 2pt; }
+</style></head><body>${el.innerHTML}</body></html>`;
+    const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${current.personalInfo.fullName.replace(/\s+/g, '_')}_Resume.doc`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  // Generic "pull from portfolio model" panel — lists DB items with one-click add.
+  const renderImportPanel = (opts: {
+    title: string;
+    items: { id: string; title: string; subtitle?: string }[];
+    alreadyAdded: (id: string) => boolean;
+    onImport: (id: string) => void;
+  }) => {
+    const pending = opts.items.filter((i) => !opts.alreadyAdded(i.id));
+    if (pending.length === 0) return null;
+    return (
+      <div className="rounded-xl border border-emerald-900/40 bg-emerald-950/10 p-4 space-y-2">
+        <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
+          <Database className="h-3.5 w-3.5" />
+          <span>{opts.title} — from Portfolio Data ({pending.length})</span>
+        </div>
+        <div className="space-y-1.5">
+          {pending.map((item) => (
+            <div key={item.id} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2">
+              <div className="min-w-0">
+                <div className="font-semibold text-white text-xs truncate">{item.title}</div>
+                {item.subtitle && <div className="text-[10px] text-slate-500 truncate">{item.subtitle}</div>}
+              </div>
+              <button
+                type="button"
+                onClick={() => opts.onImport(item.id)}
+                className="shrink-0 ml-2 flex items-center gap-1 rounded bg-emerald-700/80 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-emerald-600"
+              >
+                <Plus className="h-3 w-3" /> Add
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   // --- Work Experience Handlers ---
@@ -210,6 +337,52 @@ export default function AdminResumeBuilderView({
         subtitle="Manage resume versions, edit sections and bullet points, and export high-parse ATS PDF documents"
         actionButton={
           <div className="flex items-center gap-2">
+            <select
+              value={current.id}
+              onChange={(e) => {
+                const r = resumes.find((x) => x.id === e.target.value);
+                if (r) setCurrent(r);
+              }}
+              title="Resume version"
+              className="rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-2 text-xs text-white max-w-[160px]"
+            >
+              {resumes.length === 0 && <option value="">(unsaved)</option>}
+              {resumes.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.title}
+                </option>
+              ))}
+              {current.id && !resumes.some((r) => r.id === current.id) && <option value={current.id}>{current.title}</option>}
+            </select>
+            <button
+              onClick={handleNewResume}
+              disabled={saving}
+              title="Create a new resume pre-filled from your portfolio data"
+              className="flex items-center gap-1.5 rounded-lg border border-emerald-800/60 bg-emerald-950/40 px-3.5 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-900/40 transition-colors disabled:opacity-50"
+            >
+              <Plus className="h-4 w-4" />
+              <span>New</span>
+            </button>
+            <button
+              onClick={() => setDocEditMode((v) => !v)}
+              title={docEditMode ? 'Disable click-to-edit on the document' : 'Edit text directly on the document'}
+              className={`flex items-center gap-1.5 rounded-lg border px-3.5 py-2 text-xs font-semibold transition-colors ${
+                docEditMode
+                  ? 'border-blue-500 bg-blue-950/50 text-blue-300'
+                  : 'border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700'
+              }`}
+            >
+              {docEditMode ? <PenLine className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              <span>{docEditMode ? 'Editing' : 'Edit Doc'}</span>
+            </button>
+            <button
+              onClick={handleDownloadDoc}
+              title="Download as editable .doc (opens in Word / Google Docs)"
+              className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-colors"
+            >
+              <Download className="h-4 w-4" />
+              <span>.doc</span>
+            </button>
             <button
               onClick={handlePrint}
               className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-colors"
@@ -523,6 +696,23 @@ export default function AdminResumeBuilderView({
           {/* TAB 3: WORK EXPERIENCE */}
           {activeTab === 'experience' && (
             <div className="space-y-4">
+              {renderImportPanel({
+                title: 'Work Experience',
+                items: portfolioExperiences.map((e) => ({
+                  id: e.id,
+                  title: `${e.position} — ${e.company}`,
+                  subtitle: `${e.startDate} – ${e.current ? 'Present' : e.endDate || ''}`,
+                })),
+                alreadyAdded: (id) => {
+                  const src = portfolioExperiences.find((e) => e.id === id);
+                  return !!src && current.workExperiences.some((w) => w.company === src.company && w.position === src.position);
+                },
+                onImport: (id) => {
+                  const src = portfolioExperiences.find((e) => e.id === id);
+                  if (!src) return;
+                  setCurrent({ ...current, workExperiences: [...current.workExperiences, experienceToResume(src)] });
+                },
+              })}
               <div className="flex items-center justify-between">
                 <span className="font-bold text-white text-sm">Work Experience Items</span>
                 <button
@@ -643,6 +833,23 @@ export default function AdminResumeBuilderView({
           {/* TAB 4: PROJECTS */}
           {activeTab === 'projects' && (
             <div className="space-y-4">
+              {renderImportPanel({
+                title: 'Projects',
+                items: portfolioProjects.map((p) => ({
+                  id: p.id,
+                  title: p.name,
+                  subtitle: p.technologies?.slice(0, 4).join(', '),
+                })),
+                alreadyAdded: (id) => {
+                  const src = portfolioProjects.find((p) => p.id === id);
+                  return !!src && current.projects.some((r) => r.name === src.name);
+                },
+                onImport: (id) => {
+                  const src = portfolioProjects.find((p) => p.id === id);
+                  if (!src) return;
+                  setCurrent({ ...current, projects: [...current.projects, projectToResume(src)] });
+                },
+              })}
               <div className="flex items-center justify-between">
                 <span className="font-bold text-white text-sm">Resume Projects</span>
                 <button
@@ -750,6 +957,40 @@ export default function AdminResumeBuilderView({
           {/* TAB 5: EDUCATION */}
           {activeTab === 'education' && (
             <div className="space-y-4">
+              {renderImportPanel({
+                title: 'Education',
+                items: portfolioEducation.map((e) => ({
+                  id: e.id,
+                  title: `${e.degree} — ${e.institution}`,
+                  subtitle: `${e.fieldOfStudy} • ${e.startDate} – ${e.endDate}`,
+                })),
+                alreadyAdded: (id) => {
+                  const src = portfolioEducation.find((e) => e.id === id);
+                  return !!src && current.education.some((r) => r.degree === src.degree && r.institution === src.institution);
+                },
+                onImport: (id) => {
+                  const src = portfolioEducation.find((e) => e.id === id);
+                  if (!src) return;
+                  setCurrent({ ...current, education: [...current.education, educationToResume(src)] });
+                },
+              })}
+              {renderImportPanel({
+                title: 'Certifications',
+                items: portfolioCertifications.map((c) => ({
+                  id: c.id,
+                  title: c.name,
+                  subtitle: c.issuer || c.issuingOrganization,
+                })),
+                alreadyAdded: (id) => {
+                  const src = portfolioCertifications.find((c) => c.id === id);
+                  return !!src && (current.certifications || []).some((r) => r.name === src.name);
+                },
+                onImport: (id) => {
+                  const src = portfolioCertifications.find((c) => c.id === id);
+                  if (!src) return;
+                  setCurrent({ ...current, certifications: [...(current.certifications || []), certificationToResume(src)] });
+                },
+              })}
               <span className="font-bold text-white text-sm">Resume Education Entries</span>
               <div className="space-y-2">
                 {current.education.map((edu, idx) => (
@@ -779,6 +1020,24 @@ export default function AdminResumeBuilderView({
           {/* TAB 6: SKILLS */}
           {activeTab === 'skills' && (
             <div className="space-y-4">
+              {portfolioSkills.length > 0 && (
+                <div className="rounded-xl border border-emerald-900/40 bg-emerald-950/10 p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
+                    <Database className="h-3.5 w-3.5" />
+                    <span>Skills — from Portfolio Data ({portfolioSkills.length} skills)</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const groups = skillsToResumeGroups(portfolioSkills);
+                      setCurrent({ ...current, skills: groups, technicalSkills: groups });
+                    }}
+                    className="flex items-center gap-1 rounded bg-emerald-700/80 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-emerald-600"
+                  >
+                    <Plus className="h-3 w-3" /> Replace skills with portfolio skill groups
+                  </button>
+                </div>
+              )}
               <span className="font-bold text-white text-sm">Technical Skills Groups in Resume</span>
               <div className="space-y-2">
                 {(current.skills || current.technicalSkills || []).map((cat, idx) => (
@@ -810,11 +1069,15 @@ export default function AdminResumeBuilderView({
         <div className="lg:col-span-7 space-y-3">
           <div className="flex items-center justify-between text-xs text-slate-400 px-1 font-mono">
             <span>Live Document Render ({current.settings.template})</span>
-            <span>A4 Document Canvas</span>
+            <span>{docEditMode ? 'Click any text to edit it' : 'A4 Document Canvas'}</span>
           </div>
 
-          <div className="rounded-xl border border-slate-800 shadow-2xl bg-white overflow-hidden max-h-[85vh] overflow-y-auto flex justify-center p-4">
-            <ResumeRenderer resume={current} />
+          <div
+            className={`rounded-xl border shadow-2xl bg-white overflow-hidden max-h-[85vh] overflow-y-auto flex justify-center p-4 transition-colors ${
+              docEditMode ? 'border-blue-500/60 ring-1 ring-blue-500/30' : 'border-slate-800'
+            }`}
+          >
+            <ResumeRenderer resume={current} editable={docEditMode} onEdit={handleDocEdit} />
           </div>
         </div>
       </div>

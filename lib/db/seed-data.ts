@@ -10,6 +10,7 @@ import type {
   SiteSettings,
 } from '../../types/portfolio.ts';
 import type { Resume } from '../../types/resume.ts';
+import { buildResumeFromPortfolio, experienceToResume } from '../resume-utils.ts';
 
 export const SEED_PROFILE: Profile = {
   name: 'Shivam Shukla',
@@ -654,132 +655,38 @@ export const SEED_SERVICES: Service[] = [];
 
 export const SEED_BLOGS: Blog[] = [];
 
-export const SEED_RESUME: Resume = {
-  id: 'res-default',
+// Derived from the seed models above — no duplicated hardcoded resume content.
+// Editing SEED_EXPERIENCES / SEED_PROJECTS / SEED_SKILLS / ... automatically
+// changes the seeded resume (items carry `sourceId` so they link to their models).
+const builtResume = buildResumeFromPortfolio({
+  profile: SEED_PROFILE,
+  experiences: SEED_EXPERIENCES,
+  projects: SEED_PROJECTS,
+  education: SEED_EDUCATION,
+  skills: SEED_SKILLS,
+  certifications: SEED_CERTIFICATIONS,
   title: 'Shivam Shukla - MERN Stack Developer Resume',
+});
+
+export const SEED_RESUME: Resume = {
+  ...builtResume,
+  id: 'res-default',
   slug: 'shivam-shukla-senior-mern-stack-developer',
   targetRole: 'MERN Stack Developer',
   isDefault: true,
   personalInfo: {
-    fullName: 'SHIVAM SHUKLA',
-    professionalTitle: 'MERN Stack Developer',
-    email: 'shivam13jun@gmail.com',
-    phone: '8459784241',
-    location: 'Mumbai, Maharashtra, India',
-    linkedin: 'https://linkedin.com/in/shivam-shukla-344973235',
-    summary:
-      'As a MERN Stack Developer at Wing Global IT Service Ltd, I specialize in creating secure and scalable web solutions. My core strengths lie in advanced JavaScript, TypeScript, and Node.js, complemented by hands-on experience with React.js, Express.js, and MongoDB. I have a proven track record in optimizing performance using Redis, RabbitMQ, and Docker. Projects like FreightBooks and Safalam showcase my ability to deliver complex logistics and accounting systems. Formerly at Hands In Technology, I honed my skills in building robust REST APIs and backend modules. I am passionate about innovation and excellence in software development.',
+    ...builtResume.personalInfo,
+    fullName: SEED_PROFILE.name.toUpperCase(),
+    summary: SEED_PROFILE.longBio,
   },
-  workExperiences: [
-    {
-      id: 'rw-1',
-      company: 'Wing Global IT Service Ltd',
-      position: 'MERN Stack Developer',
-      location: 'Mumbai, Maharashtra, India',
-      startDate: 'Feb 25',
-      endDate: 'Present',
-      current: true,
-      bulletPoints: [
-        'Develop secure and scalable REST APIs',
-        'Implement Redis caching for performance optimization',
-        'Use RabbitMQ for background jobs and async workflows',
-        'Build logistics, dispatch, and accounting systems',
-        'Projects: FreightBooks, Safalam, ITD',
-      ],
-      technologies: ['Node.js', 'TypeScript', 'React.js', 'Express.js', 'MongoDB', 'Redis', 'RabbitMQ', 'Docker'],
-    },
-    {
-      id: 'rw-2',
-      company: 'Hands In Technology',
-      position: 'Node.js Developer',
-      location: 'Mumbai, Maharashtra, India',
-      startDate: 'Aug 22',
-      endDate: 'Jan 25',
-      current: false,
-      bulletPoints: [
-        'Developed REST APIs and React modules',
-        'Worked on logistics platform C3Express',
-        'Designed backend modules and MongoDB schemas',
-      ],
-      technologies: ['Node.js', 'Express.js', 'MongoDB', 'React.js', 'REST APIs', 'Git'],
-    },
-  ],
-  projects: [
-    {
-      id: 'rp-1',
-      name: 'FreightBooks (Logistics & Accounting SaaS)',
-      role: 'Lead Full Stack Engineer',
-      startDate: 'Feb 2025',
-      endDate: 'Present',
-      technologies: ['Node.js', 'MongoDB', 'Redis', 'RabbitMQ', 'React.js'],
-      bulletPoints: [
-        'Built enterprise accounting and invoice reconciliation module processing multi-currency billing.',
-        'Implemented RabbitMQ message queue for background invoice generation and partner notifications.',
-        'Accelerated dispatch queries via Redis caching, cutting latency by 42%.',
-      ],
-    },
-    {
-      id: 'rp-2',
-      name: 'Safalam (Fleet Dispatch Platform)',
-      role: 'Backend Developer',
-      startDate: 'Feb 2025',
-      endDate: 'Present',
-      technologies: ['Node.js', 'Express.js', 'MongoDB', 'TanStack Query', 'React.js'],
-      bulletPoints: [
-        'Developed driver dispatch and route scheduling microservices for commercial vehicle fleets.',
-        'Integrated MongoDB geodetic queries for real-time proximity matching and driver milestone alerts.',
-      ],
-    },
-    {
-      id: 'rp-3',
-      name: 'C3Express (High-Throughput Logistics Engine)',
-      role: 'Backend Developer',
-      startDate: 'Aug 2022',
-      endDate: 'Jan 2025',
-      technologies: ['Node.js', 'Express.js', 'MongoDB', 'React.js'],
-      bulletPoints: [
-        'Architected core REST APIs and database schema handling 500,000+ shipment tracking queries.',
-        'Tuned compound MongoDB indexes, reducing tracking history lookup from 8s to 650ms.',
-      ],
-    },
-  ],
-  education: [
-    {
-      id: 're-1',
-      institution: 'SN College, Mumbai University',
-      degree: 'Bachelor of Science in Information Technology',
-      fieldOfStudy: 'Information Technology',
-      startDate: '2019',
-      endDate: '2022',
-    },
-  ],
-  skills: [
-    {
-      category: 'Technical Skills',
-      skills: [
-        'JavaScript',
-        'TypeScript',
-        'Node.js',
-        'Express.js',
-        'MongoDB',
-        'React.js',
-        'Redux',
-        'TanStack Query',
-        'REST APIs',
-        'Redis',
-        'RabbitMQ',
-        'Socket.io',
-        'Docker',
-        'Git',
-      ],
-    },
-  ],
+  // Richer bullets: responsibilities plus measured achievements
+  workExperiences: SEED_EXPERIENCES.map((e) => ({
+    ...experienceToResume(e),
+    bulletPoints: [...(e.responsibilities || []), ...(e.achievements || [])],
+  })),
   settings: {
-    template: 'modern',
-    fontFamily: 'Inter',
+    ...builtResume.settings,
     fontSize: 'normal',
-    accentColor: '#2563eb',
-    spacing: 'normal',
     pageSize: 'A4',
     margins: 'normal',
   },
