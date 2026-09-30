@@ -255,7 +255,6 @@ const ResumeSchema = new Schema(
     projects: [Schema.Types.Mixed],             // ObjectId -> Project | { ref } | embedded
     education: [Schema.Types.Mixed],            // ObjectId -> Education | { ref } | embedded
     skills: [Schema.Types.Mixed],               // ObjectId -> Skill | { ref } | embedded { category, skills }
-    technicalSkills: [Schema.Types.Mixed],      // alias hydrated identically to `skills`
     certifications: [Schema.Types.Mixed],       // ObjectId -> Certification | { ref } | embedded
     languages: [Schema.Types.Mixed],
     sectionOrder: [Schema.Types.Mixed],

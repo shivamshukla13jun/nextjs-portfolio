@@ -30,12 +30,11 @@ export function experienceToResume(e: Experience): ResumeWorkItem {
     startDate: e.startDate,
     endDate: e.endDate,
     current: e.current,
-    bulletPoints: (e.responsibilities && e.responsibilities.length > 0
-      ? e.responsibilities
-      : e.description
-        ? [e.description]
-        : []
-    ).filter(Boolean),
+    // Responsibilities + measured achievements; description only when neither exists
+    bulletPoints: (() => {
+      const pts = [...(e.responsibilities || []), ...(e.achievements || [])].filter(Boolean);
+      return pts.length > 0 ? pts : e.description ? [e.description] : [];
+    })(),
     technologies: e.technologies || [],
   };
 }
@@ -46,7 +45,6 @@ export function projectToResume(p: Project): ResumeProjectItem {
     sourceId: p.id,
     name: p.name,
     description: p.shortDescription,
-    role: 'Full Stack Developer',
     technologies: p.technologies || [],
     link: p.liveUrl || p.githubUrl,
     bulletPoints:
@@ -105,7 +103,7 @@ export function profileToPersonalInfo(p: Profile) {
     website: p.website,
     github: p.github,
     linkedin: p.linkedin,
-    summary: p.shortBio || p.longBio || '',
+    summary: p.longBio || p.shortBio || '',
   };
 }
 
@@ -124,23 +122,14 @@ export function buildResumeFromPortfolio(input: {
     id: '',
     title: input.title || `${p?.name || 'My'} — Resume`,
     isDefault: false,
-    personalInfo: {
-      fullName: p?.name || 'Shivam Shukla',
-      professionalTitle: p?.professionalTitle || 'Senior MERN Stack Developer',
-      email: p?.email || '',
-      phone: p?.phone,
-      location: p?.location || '',
-      website: p?.website,
-      github: p?.github,
-      linkedin: p?.linkedin,
-      summary: p?.shortBio || p?.longBio || '',
-    },
+    personalInfo: p
+      ? profileToPersonalInfo(p)
+      : { fullName: '', professionalTitle: '', email: '', location: '', summary: '' },
     workExperiences: input.experiences.map(experienceToResume),
     projects: input.projects.slice(0, 6).map(projectToResume),
     education: input.education.map(educationToResume),
     certifications: input.certifications.map(certificationToResume),
     skills: skillsToResumeGroups(input.skills),
-    technicalSkills: skillsToResumeGroups(input.skills),
     settings: { template: 'modern', accentColor: '#2563eb', fontFamily: 'Inter', fontSize: 'base', spacing: 'normal' },
   };
 }

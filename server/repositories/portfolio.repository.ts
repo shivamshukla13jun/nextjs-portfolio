@@ -159,23 +159,23 @@ const sameData = (a: any, b: any) => JSON.stringify(stable(a)) === JSON.stringif
 
 const META_KEYS = new Set(['id', 'sourceId', 'sourceIds', 'ref', '_id', 'createdAt', 'updatedAt', '__v']);
 
-// Split a resume item into { overrides, customized } against its source conversion.
+// undefined / null / '' / [] are all "no value" — never a meaningful difference
+const isEmptyVal = (v: any) => v == null || v === '' || (Array.isArray(v) && v.length === 0);
+const sameVal = (a: any, b: any) => (isEmptyVal(a) && isEmptyVal(b)) || sameData(a, b);
+
+// Minimal diff of a resume item against its source model: only fields that
+// actually differ are kept as overrides, everything else comes from the ref.
 function diffAgainstSource(item: Record<string, any>, src: Record<string, any>) {
   const overrides: Record<string, any> = {};
-  let customized = false;
   for (const [k, v] of Object.entries(item)) {
-    if (META_KEYS.has(k)) continue;
-    overrides[k] = v;
-    if (!(k in src) || !sameData(v, src[k])) customized = true;
+    if (META_KEYS.has(k) || v === undefined) continue;
+    if (!sameVal(v, src[k])) overrides[k] = v;
   }
   // Fields removed in the resume are stored as explicit nulls so the populated value doesn't resurface
   for (const k of Object.keys(src)) {
-    if (!META_KEYS.has(k) && !(k in item) && src[k] != null && src[k] !== '') {
-      overrides[k] = null;
-      customized = true;
-    }
+    if (!META_KEYS.has(k) && !(k in item) && !isEmptyVal(src[k])) overrides[k] = null;
   }
-  return { overrides, customized };
+  return { overrides, customized: Object.keys(overrides).length > 0 };
 }
 
 const natKey = (o: any, fields: string[]) => fields.map((f) => String(o?.[f] ?? '')).join('||');
@@ -433,7 +433,9 @@ export async function dehydrateResume(data: Partial<Resume>) {
     dehydrateItems(data.certifications, CertificationModel, toResumeCertification, ['name']),
     dehydrateSkills(data.skills ?? data.technicalSkills),
   ]);
-  return { ...data, personalInfo, workExperiences, projects, education, certifications, skills, technicalSkills: skills };
+  // `technicalSkills` is only a read-time alias of `skills` — never persisted
+  const { technicalSkills: _alias, ...rest } = data;
+  return { ...rest, personalInfo, workExperiences, projects, education, certifications, skills };
 }
 
 // Seed the default resume dehydrated — its items link to the seeded model docs

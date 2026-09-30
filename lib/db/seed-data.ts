@@ -10,7 +10,7 @@ import type {
   SiteSettings,
 } from '../../types/portfolio.ts';
 import type { Resume } from '../../types/resume.ts';
-import { buildResumeFromPortfolio, experienceToResume } from '../resume-utils.ts';
+import { buildResumeFromPortfolio } from '../resume-utils.ts';
 
 export const SEED_PROFILE: Profile = {
   name: 'Shivam Shukla',
@@ -24,8 +24,8 @@ export const SEED_PROFILE: Profile = {
     'As a MERN Stack Developer at Wing Global IT Service Ltd, I specialize in creating secure and scalable web solutions. My core strengths lie in advanced JavaScript, TypeScript, and Node.js, complemented by hands-on experience with React.js, Express.js, and MongoDB. I have a proven track record in optimizing performance using Redis, RabbitMQ, and Docker. Projects like FreightBooks and Safalam showcase my ability to deliver complex logistics and accounting systems. Formerly at Hands In Technology, I honed my skills in building robust REST APIs and backend modules. I am passionate about innovation and excellence in software development.',
   github: 'https://github.com/shivamshukla13jun',
   linkedin: 'https://www.linkedin.com/in/shivam-shukla-344973235?utm_source=share_via&utm_content=profile&utm_medium=member_android',
-  twitter: 'https://twitter.com/shivam_dev',
-  website: 'https://shivamshukla.dev',
+  twitter: 'https://x.com/shivamshuk32451',
+  website: 'https://nextjs-portfolio-seven-silk-44.vercel.app',
   yearsOfExperience: 4,
   availability: 'Available for Hire',
 };
@@ -112,7 +112,7 @@ export const SEED_EXPERIENCES: Experience[] = [
 export const SEED_PROJECTS: Project[] = [
   {
     id: 'proj-1',
-    name: 'FreightBooks — Transport Accounting & Logistics SaaS',
+    name: 'FreightBooks — Enterprise Transport Accounting & Logistics SaaS',
     slug: 'freightbooks-accounting-saas',
     shortDescription:
       'Enterprise transport accounting & logistics SaaS spanning 35+ microservice modules — load dispatch, carrier management, invoicing, chart of accounts, and AI-assisted reporting.',
@@ -144,11 +144,7 @@ export const SEED_PROJECTS: Project[] = [
       'OpenAI', 'CryptoJS', 'JWT', 'Jenkins', 'PM2', 'Docker',
     ],
     liveUrl: 'https://freightbooks.net',
-    images: [
-      'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1200&q=80',
-    ],
+    images: [ ],
     architectureTree: `freightbooks-api/                 # Express + TypeScript backend
 ├── src/
 │   ├── microservices/           # 35+ feature modules (own routes+controllers)
@@ -194,13 +190,13 @@ freightbooks-crm/                # React 19 + Vite + MUI 6 CRM
       'Role-scoped workspaces let companies safely delegate to dispatchers and accountants',
     ],
     startDate: 'Feb 2025',
-    endDate: 'Present',
+    endDate: 'Aug 2026',
     featured: true,
     category: 'Enterprise SaaS · Logistics & Accounting',
   },
   {
     id: 'proj-2',
-    name: 'TailorsMat (MyTailor) — On-Demand Tailoring Commerce Platform',
+    name: 'MyTailor — Online Tailoring Platform',
     slug: 'mytailor-tailoring-platform',
     shortDescription:
       'End-to-end tailoring commerce platform — customer ordering app API with FCM push notifications plus an admin/executive CRM for catalog, orders, and staff operations.',
@@ -212,6 +208,7 @@ freightbooks-crm/                # React 19 + Vite + MUI 6 CRM
       'Built a realtime order-management backend with event-driven notifications (RabbitMQ → FCM/Twilio/Socket.IO) and a role-split CRM (admin vs executive) so staff can manage catalogs, track orders, and communicate status changes instantly.',
     features: [
       'Realtime order status updates via Socket.IO + FCM push (Firebase Admin)',
+      'CSV import with image attachments',
       'RabbitMQ notification pipeline + Twilio SMS fallback',
       'Redis caching & node-cron scheduled jobs for reminders and housekeeping',
       'Swagger-documented REST API with Joi/express-validator validation',
@@ -265,13 +262,15 @@ mytailor-crm/                    # React 19 + Vite + Tailwind CRM
     challenges: [
       'Coordinating multi-channel notifications (FCM, SMS, sockets) without duplicate sends',
       'Managing FCM token lifecycles across reinstalls and multi-device users',
+      'CSV import with image attachments With large Content Handle From changing nginx configurations',
     ],
     results: [
       'Digitized the full order-to-delivery pipeline for tailoring operations',
       'Realtime status updates removed manual "order status" phone calls',
+      'Scalable architecture handles high traffic during peak seasons',
     ],
-    startDate: 'Jun 2024',
-    endDate: 'Present',
+    startDate: 'Jun 2026',
+    endDate: 'Aug 2026',
     featured: true,
     liveUrl: 'https://play.google.com/store/apps/details?id=com.tailor.detail.tailor&pcampaignid=web_share',
     category: 'Commerce · On-Demand Services',
@@ -308,11 +307,7 @@ mytailor-crm/                    # React 19 + Vite + Tailwind CRM
       'Leaflet', 'MQTT', 'Node.js', 'Express.js', 'MongoDB', 'Mongoose', 'BullMQ', 'Redis',
       'MinIO', 'Stripe', 'Turf.js', 'Firebase Admin', 'Twilio', 'Zod', 'Docker',
     ],
-    images: [
-      'https://images.unsplash.com/photo-1494412574643-ff11b0a5c1c3?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1587293852726-70cdb56c2866?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80',
-    ],
+    images: [ ],
     architectureTree: `docs2docs/
 ├── backend/                     # Express + MongoDB API
 │   ├── src/
@@ -349,7 +344,7 @@ mytailor-crm/                    # React 19 + Vite + Tailwind CRM
       'Single shared source of truth for all 6 freight personas',
       'Real-time tracking + document center replaced phone/email status chasing',
     ],
-    startDate: 'Jan 2025',
+    startDate: 'Aug 2025',
     endDate: 'Present',
     featured: true,
     category: 'Logistics · Real-Time Platform',
@@ -385,10 +380,7 @@ mytailor-crm/                    # React 19 + Vite + Tailwind CRM
       'Yup', 'Recharts', 'CryptoJS', 'react-camera-pro', 'xlsx', 'Node.js', 'Express.js',
       'Sequelize', 'MySQL', 'JWT',
     ],
-    images: [
-      'https://images.unsplash.com/photo-1553413077-190dd305871c?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=1200&q=80',
-    ],
+    images: [],
     architectureTree: `safalam-crm/                     # React 18 (CRA) + MUI 5
 └── src/
     ├── components/
@@ -417,8 +409,8 @@ mytailor-crm/                    # React 19 + Vite + Tailwind CRM
       'Full audit trail of field visits with photo + location evidence',
       'Department-scoped visibility enforced across every module',
     ],
-    startDate: 'Aug 2024',
-    endDate: 'Present',
+    startDate: 'Aug 2025',
+    endDate: 'Feb 2026',
     featured: false,
     category: 'CRM · Field Operations',
     liveUrl: 'https://crm.safalam.com',
@@ -491,8 +483,8 @@ mytailor-crm/                    # React 19 + Vite + Tailwind CRM
       'End-to-end timestamped pickup/delivery audit trail for every load',
       'Carrier verification by DOT removed manual paperwork checks',
     ],
-    startDate: 'Mar 2025',
-    endDate: 'Present',
+    startDate: 'Feb 2026',
+    endDate: 'Aug 2026',
     featured: true,
     category: 'Logistics · Real-Time Tracking',
     liveUrl:"https://play.google.com/store/apps/details?id=com.itruck.itd&pcampaignid=web_share"
@@ -523,10 +515,7 @@ mytailor-crm/                    # React 19 + Vite + Tailwind CRM
     ],
     technologies: ['Node.js', 'Express.js', 'MongoDB', 'React.js', 'JWT', 'REST APIs'],
     liveUrl: 'https://shreesso.org/JobSection',
-    images: [
-      'https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?auto=format&fit=crop&w=1200&q=80',
-    ],
+    images: [ ],
     flow: [
       'User signs in once via SSO — same session works across all sub-platforms',
       'Employer posts a job; seekers discover it via search & filters',
@@ -570,10 +559,7 @@ mytailor-crm/                    # React 19 + Vite + Tailwind CRM
     ],
     technologies: ['Node.js', 'Express.js', 'MongoDB', 'React.js', 'REST APIs', 'Third-Party Integrations'],
     liveUrl: 'https://www.c3xpress.com/',
-    images: [
-      'https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1566576721346-d4a3b4eaeb55?auto=format&fit=crop&w=1200&q=80',
-    ],
+    images: [ ],
     flow: [
       'Dispatcher registers a carrier using its identifier',
       'Verified carrier data is pulled from the third-party service and stored locally',
@@ -644,7 +630,7 @@ export const SEED_EDUCATION: Education[] = [
     fieldOfStudy: 'Information Technology',
     startDate: '2019',
     endDate: '2021',
-    grade: 'First Class with Distinction',
+    grade: 'First Class',
     activities: 'Software Engineering Project Lead',
   },
 ];
@@ -674,16 +660,6 @@ export const SEED_RESUME: Resume = {
   slug: 'shivam-shukla-senior-mern-stack-developer',
   targetRole: 'MERN Stack Developer',
   isDefault: true,
-  personalInfo: {
-    ...builtResume.personalInfo,
-    fullName: SEED_PROFILE.name.toUpperCase(),
-    summary: SEED_PROFILE.longBio,
-  },
-  // Richer bullets: responsibilities plus measured achievements
-  workExperiences: SEED_EXPERIENCES.map((e) => ({
-    ...experienceToResume(e),
-    bulletPoints: [...(e.responsibilities || []), ...(e.achievements || [])],
-  })),
   settings: {
     ...builtResume.settings,
     fontSize: 'normal',
