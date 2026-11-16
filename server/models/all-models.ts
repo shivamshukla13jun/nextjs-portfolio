@@ -239,45 +239,12 @@ const AnalyticsCounterSchema = new Schema(
   },
   { timestamps: true }
 );
-// Resume Schema
-const ResumeSchema = new Schema(
-  {
-    title: { type: String, required: true },
-    slug: { type: String, index: true },
-    targetRole: { type: String, default: '' },
-    isDefault: { type: Boolean, default: false },
-    // Each item slot accepts three shapes, resolved by the repository's hydrate/dehydrate:
-    //   1. bare ObjectId           -> live link, populated from the referenced document
-    //   2. { ref: ObjectId, ... }  -> linked item with resume-specific field overrides
-    //   3. plain object            -> embedded item with no model counterpart
-    personalInfo: { type: Schema.Types.Mixed }, // ObjectId -> Profile | { ref } | embedded
-    workExperiences: [Schema.Types.Mixed],      // ObjectId -> Experience | { ref } | embedded
-    projects: [Schema.Types.Mixed],             // ObjectId -> Project | { ref } | embedded
-    education: [Schema.Types.Mixed],            // ObjectId -> Education | { ref } | embedded
-    skills: [Schema.Types.Mixed],               // ObjectId -> Skill | { ref } | embedded { category, skills }
-    certifications: [Schema.Types.Mixed],       // ObjectId -> Certification | { ref } | embedded
-    languages: [Schema.Types.Mixed],
-    sectionOrder: [Schema.Types.Mixed],
-    customSections: [Schema.Types.Mixed],
-    settings: {
-      template: { type: String, default: 'modern' },
-      fontFamily: { type: String, default: 'Inter' },
-      fontSize: { type: String, default: 'normal' },
-      accentColor: { type: String, default: '#2563eb' },
-      spacing: { type: String, default: 'normal' },
-      pageSize: { type: String, default: 'A4' },
-      margins: { type: String, default: 'normal' },
-    },
-  },
-  { timestamps: true }
-);
 // Model definitions with mongoose cache guards
 export const UserModel = mongoose.models.User || mongoose.model('User', UserSchema);
 export const ProfileModel = mongoose.models.Profile || mongoose.model('Profile', ProfileSchema);
 export const SkillModel = mongoose.models.Skill || mongoose.model('Skill', SkillSchema);
 export const ExperienceModel = mongoose.models.Experience || mongoose.model('Experience', ExperienceSchema);
 export const ProjectModel = mongoose.models.Project || mongoose.model('Project', ProjectSchema);
-export const ResumeModel = mongoose.models.Resume || mongoose.model('Resume', ResumeSchema);
 export const ContactMessageModel = mongoose.models.ContactMessage || mongoose.model('ContactMessage', ContactMessageSchema);
 export const EducationModel = mongoose.models.Education || mongoose.model('Education', EducationSchema);
 export const CertificationModel = mongoose.models.Certification || mongoose.model('Certification', CertificationSchema);

@@ -17,7 +17,7 @@ export default function Navbar({ currentPath, navigate }: NavbarProps) {
     { href: '/skills', label: 'Skills' },
     { href: '/services', label: 'Services' },
     { href: '/blog', label: 'Blog' },
-    { href: '/resume', label: 'Resume & PDF', highlight: true },
+    { href: '/resume', label: 'Resume', highlight: true },
     { href: '/contact', label: 'Contact' },
   ];
 

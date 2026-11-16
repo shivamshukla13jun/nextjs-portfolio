@@ -9,8 +9,6 @@ import type {
   Blog,
   SiteSettings,
 } from '../../types/portfolio.ts';
-import type { Resume } from '../../types/resume.ts';
-import { buildResumeFromPortfolio } from '../resume-utils.ts';
 
 export const SEED_PROFILE: Profile = {
   name: 'Shivam Shukla',
@@ -640,35 +638,6 @@ export const SEED_CERTIFICATIONS: Certification[] = [];
 export const SEED_SERVICES: Service[] = [];
 
 export const SEED_BLOGS: Blog[] = [];
-
-// Derived from the seed models above — no duplicated hardcoded resume content.
-// Editing SEED_EXPERIENCES / SEED_PROJECTS / SEED_SKILLS / ... automatically
-// changes the seeded resume (items carry `sourceId` so they link to their models).
-const builtResume = buildResumeFromPortfolio({
-  profile: SEED_PROFILE,
-  experiences: SEED_EXPERIENCES,
-  projects: SEED_PROJECTS,
-  education: SEED_EDUCATION,
-  skills: SEED_SKILLS,
-  certifications: SEED_CERTIFICATIONS,
-  title: 'Shivam Shukla - MERN Stack Developer Resume',
-});
-
-export const SEED_RESUME: Resume = {
-  ...builtResume,
-  id: 'res-default',
-  slug: 'shivam-shukla-senior-mern-stack-developer',
-  targetRole: 'MERN Stack Developer',
-  isDefault: true,
-  settings: {
-    ...builtResume.settings,
-    fontSize: 'normal',
-    pageSize: 'A4',
-    margins: 'normal',
-  },
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-};
 
 export const SEED_SETTINGS: SiteSettings = {
   siteTitle: 'Shivam Shukla | MERN Stack Developer Portfolio & Resume',

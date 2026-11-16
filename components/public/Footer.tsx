@@ -31,7 +31,7 @@ export default function Footer({ navigate }: FooterProps) {
               <li><button onClick={() => navigate('/about')} className="hover:text-white">About & Education</button></li>
               <li><button onClick={() => navigate('/projects')} className="hover:text-white">Architecture Projects</button></li>
               <li><button onClick={() => navigate('/experience')} className="hover:text-white">Work Experience</button></li>
-              <li><button onClick={() => navigate('/resume')} className="hover:text-white text-blue-400 font-semibold">Resume & ATS Builder</button></li>
+              <li><button onClick={() => navigate('/resume')} className="hover:text-white text-blue-400 font-semibold">Resume</button></li>
             </ul>
           </div>
 

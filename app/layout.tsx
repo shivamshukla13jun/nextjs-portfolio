@@ -2,11 +2,11 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Shivam Shukla — Senior MERN Stack Developer | Portfolio & ATS Resume',
+  title: 'Shivam Shukla — Senior MERN Stack Developer | Portfolio',
   description:
     'Senior MERN Stack Developer specializing in Node.js, TypeScript, React, Express, MongoDB, Redis, RabbitMQ, and Docker.',
   openGraph: {
-    title: 'Shivam Shukla — Senior MERN Stack Developer | Portfolio & ATS Resume',
+    title: 'Shivam Shukla — Senior MERN Stack Developer | Portfolio',
     description:
       'Senior MERN Stack Developer specializing in Node.js, TypeScript, React, Express, MongoDB, Redis, RabbitMQ, and Docker.',
     type: 'website',

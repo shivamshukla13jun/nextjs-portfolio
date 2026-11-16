@@ -3,7 +3,6 @@
 import React from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import type { Profile, Skill, Experience, Project, Service, Blog } from '@/types/portfolio';
-import type { Resume as ResumeDoc } from '@/types/resume';
 import {
   PublicHeader,
   PublicFooter,
@@ -90,7 +89,6 @@ export function DashboardClient(props: {
   skills: Skill[];
   experiences: Experience[];
   blogs: Blog[];
-  resumes: ResumeDoc[];
 }) {
   const navigate = useNav();
   return <AdminDashboardView {...props} navigate={navigate} />;

@@ -19,7 +19,6 @@ const CONTENT_COLLECTIONS = [
   'certifications',
   'services',
   'blogs',
-  'resumes',
   'sitesettings',
 ];
 

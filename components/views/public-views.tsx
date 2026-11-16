@@ -1,8 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import ResumeRenderer from '@/components/resume/ResumeRenderer';
-import ResumePDFDownloadButton from '@/components/resume/ResumePDFDownloadButton';
 import AdminHeader from '@/components/admin/AdminHeader';
 
 import type {
@@ -18,7 +16,6 @@ import type {
   SiteSettings,
   FileRecord,
 } from '@/types/portfolio';
-import type { Resume, ResumeTemplateId } from '@/types/resume';
 import type { AIGenerationRecord } from '@/types/ai';
 
 import {
@@ -34,7 +31,6 @@ import {
   MapPin,
   Clock,
   ChevronRight,
-  Sparkles,
   Bot,
   Plus,
   Trash2,
@@ -44,7 +40,7 @@ import {
   Search,
   Lock,
   Database,
-  ShieldCheck,
+  Download,
   Eye,
   AlertCircle,
   Check,
@@ -66,15 +62,6 @@ import {
   ArrowLeft,
   Copy,
 } from 'lucide-react';
-
-// Resume template definitions
-const RESUME_TEMPLATES: { id: ResumeTemplateId; name: string }[] = [
-  { id: 'modern', name: 'Modern Developer' },
-  { id: 'ats', name: 'ATS Friendly (High Parse Rate)' },
-  { id: 'minimal', name: 'Minimal Professional' },
-  { id: 'two-column', name: 'Two Column' },
-  { id: 'executive', name: 'Executive' },
-];
 
 // -------------------------------------------------------------
 // PUBLIC HEADER & FOOTER
@@ -205,7 +192,7 @@ export function PublicFooter({ navigate }: { navigate: (p: string) => void }) {
                 Experience
               </button>
               <button onClick={() => navigate('/resume')} className="text-left hover:text-blue-400">
-                Multi-Template Resume
+                Resume
               </button>
               <button onClick={() => navigate('/blog')} className="text-left hover:text-blue-400">
                 Engineering Blog
@@ -298,13 +285,14 @@ export function PublicHomeView({
               )}
 
               <div className="flex flex-wrap items-center gap-3 pt-4">
-                <button
-                  onClick={() => navigate('/resume')}
+                <a
+                  href="/Shivam_Shukla_Resume.pdf"
+                  download="Shivam_Shukla_Resume.pdf"
                   className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/30 hover:bg-blue-500 transition-all"
                 >
                   <FileText className="h-4 w-4" />
-                  <span>Download Resume & ATS</span>
-                </button>
+                  <span>Download Resume</span>
+                </a>
                 <button
                   onClick={() => navigate('/contact')}
                   className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/80 px-5 py-2.5 text-sm font-semibold text-slate-200 hover:bg-slate-700 transition-all"
@@ -1025,113 +1013,41 @@ export function PublicContactView() {
 }
 
 // -------------------------------------------------------------
-// PUBLIC RESUME VIEW (Multi-template, live preview, PDF generator)
+// PUBLIC RESUME VIEW (Static PDF download + inline preview)
 // -------------------------------------------------------------
-export function PublicResumeView({ resumes, defaultResume }: { resumes: Resume[]; defaultResume: Resume }) {
-  const [selectedResumeId, setSelectedResumeId] = useState(defaultResume.id);
-  const [activeRes, setActiveRes] = useState<Resume>(defaultResume);
-  const [template, setTemplate] = useState<ResumeTemplateId>(defaultResume.settings.template);
-  const [atsScore, setAtsScore] = useState<number | null>(null);
-  const [scanning, setScanning] = useState(false);
-
-  const handleSelect = (id: string) => {
-    setSelectedResumeId(id);
-    const found = resumes.find((r) => r.id === id);
-    if (found) {
-      setActiveRes(found);
-      setTemplate(found.settings.template);
-    }
-  };
-
-  const handleScanAts = async () => {
-    setScanning(true);
-    try {
-      const summaryText = `${activeRes.personalInfo.fullName} ${activeRes.personalInfo.summary} ${activeRes.workExperiences.map((w) => w.bulletPoints.join(' ')).join(' ')}`;
-      const res = await fetch('/api/ai/ats-analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resumeContent: summaryText, targetRole: activeRes.personalInfo.professionalTitle }),
-      });
-      const d = await res.json();
-      setAtsScore(d.score || 91);
-    } catch {
-      setAtsScore(91);
-    } finally {
-      setScanning(false);
-    }
-  };
-
-  const currentWithSettings: Resume = {
-    ...activeRes,
-    settings: { ...activeRes.settings, template },
+export function PublicResumeView() {
+  const handleDownload = () => {
+    fetch('/api/analytics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'resume_download', path: window.location.pathname }),
+    }).catch(() => {});
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      <div className="rounded-2xl border border-slate-800 bg-[#0e1422] p-6 space-y-4 no-print">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Interactive Resume & PDF Export</h1>
-            <p className="text-xs text-slate-400">Choose from 5 templates or run Gemini ATS compatibility scan</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleScanAts}
-              disabled={scanning}
-              className="flex items-center gap-1.5 rounded-lg border border-indigo-700 bg-indigo-950/40 px-3.5 py-2 text-xs font-semibold text-indigo-300"
-            >
-              <Sparkles className="h-4 w-4" />
-              <span>{scanning ? 'Scanning...' : 'Gemini ATS Scan'}</span>
-            </button>
-            <ResumePDFDownloadButton resumeTitle={`${activeRes.personalInfo.fullName.replace(/\s+/g, '_')}_Resume`} />
-          </div>
+    <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-10 space-y-6">
+      <div className="rounded-2xl border border-slate-800 bg-[#0e1422] p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Resume</h1>
+          <p className="text-xs text-slate-400 mt-1">Download the latest resume as a PDF, or preview it below.</p>
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-          <div>
-            <label className="block text-slate-400 mb-1">Resume Version:</label>
-            <select
-              value={selectedResumeId}
-              onChange={(e) => handleSelect(e.target.value)}
-              className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-1.5 text-white"
-            >
-              {resumes.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.title}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-slate-400 mb-1">Template:</label>
-            <select
-              value={template}
-              onChange={(e) => setTemplate(e.target.value as ResumeTemplateId)}
-              className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-1.5 text-white"
-            >
-              {RESUME_TEMPLATES.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {atsScore !== null && (
-            <div className="flex items-center gap-2 rounded bg-emerald-950/40 border border-emerald-800 px-3 py-1 text-xs text-emerald-300">
-              <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400" />
-              <span>ATS Score: {atsScore} / 100</span>
-            </div>
-          )}
-        </div>
+        <a
+          href="/Shivam_Shukla_Resume.pdf"
+          download="Shivam_Shukla_Resume.pdf"
+          onClick={handleDownload}
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/30 hover:bg-blue-500 transition-all shrink-0"
+        >
+          <Download className="h-4 w-4" />
+          <span>Download Resume (PDF)</span>
+        </a>
       </div>
 
-      {/* Render Canvas */}
-      <div className="flex justify-center overflow-x-auto py-2">
-        <div className="rounded-xl border border-slate-700/80 shadow-2xl bg-white overflow-hidden max-w-full">
-          <ResumeRenderer resume={currentWithSettings} />
-        </div>
+      <div className="rounded-xl border border-slate-800 bg-white overflow-hidden shadow-2xl">
+        <iframe
+          src="/Shivam_Shukla_Resume.pdf#toolbar=0"
+          title="Shivam Shukla — Resume PDF"
+          className="w-full h-[85vh]"
+        />
       </div>
     </div>
   );
@@ -1226,19 +1142,17 @@ export function AdminDashboardView({
   skills,
   experiences,
   blogs,
-  resumes,
   navigate,
 }: {
   projects: Project[];
   skills: Skill[];
   experiences: Experience[];
   blogs: Blog[];
-  resumes: Resume[];
   navigate: (p: string) => void;
 }) {
   return (
     <div className="p-6 sm:p-8 space-y-6">
-      <AdminHeader title="Admin Overview Dashboard" subtitle="Manage portfolio collections, resume builder, and files" />
+      <AdminHeader title="Admin Overview Dashboard" subtitle="Manage portfolio collections and files" />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
@@ -1246,7 +1160,6 @@ export function AdminDashboardView({
           { label: 'Skills', count: skills.length, path: '/admin/skills' },
           { label: 'Experiences', count: experiences.length, path: '/admin/experience' },
           { label: 'Articles', count: blogs.length, path: '/admin/blog' },
-          { label: 'Resume Versions', count: resumes.length, path: '/admin/resume-builder' },
         ].map((stat, i) => (
           <button
             key={i}
@@ -1262,12 +1175,6 @@ export function AdminDashboardView({
       <div className="rounded-xl border border-slate-800 bg-[#0e1422] p-6 space-y-3">
         <h3 className="text-sm font-bold text-white uppercase font-mono">Quick Shortcuts</h3>
         <div className="flex flex-wrap gap-3">
-          <button
-            onClick={() => navigate('/admin/resume-builder')}
-            className="rounded bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-500"
-          >
-            Open Resume Builder
-          </button>
           <button
             onClick={() => navigate('/admin/ai-assistant')}
             className="rounded border border-indigo-700 bg-indigo-950 px-4 py-2 text-xs font-semibold text-indigo-300"

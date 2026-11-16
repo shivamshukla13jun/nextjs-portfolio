@@ -1,6 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
 import type { AIOperationType, AIEnhanceResponse } from '../../../types/ai.ts';
-import type { ATSAnalysisResult } from '../../../types/resume.ts';
 import { PortfolioRepository } from '../../repositories/portfolio.repository.ts';
 
 const apiKey = process.env.GEMINI_API_KEY;
@@ -130,73 +129,6 @@ export const GeminiService = {
     };
   },
 
-  async analyzeResumeATS(resumeContent: string, targetRole?: string): Promise<ATSAnalysisResult> {
-    const role = targetRole || 'Staff Full Stack Engineer';
-    const prompt = `Analyze this resume against modern Applicant Tracking Systems (ATS) for the target role: "${role}".
-Evaluate keyword density, technical skill placement, quantified impact metrics, and clarity.
-Provide a JSON response matching this schema:
-{
-  "score": number (0-100),
-  "matchingKeywords": string[],
-  "missingKeywords": string[],
-  "strengths": string[],
-  "improvements": string[],
-  "verdict": string
-}
-
-Resume Content:
-${resumeContent}
-`;
-
-    if (aiClient) {
-      try {
-        const response = await aiClient.models.generateContent({
-          model: 'gemini-3.8-flash',
-          contents: prompt,
-          config: {
-            responseMimeType: 'application/json',
-          },
-        });
-
-        if (response.text) {
-          const parsed = JSON.parse(response.text);
-          return {
-            score: parsed.score || 88,
-            matchingKeywords: parsed.matchingKeywords || ['TypeScript', 'Node.js', 'React', 'MongoDB'],
-            missingKeywords: parsed.missingKeywords || ['OpenTelemetry', 'Kubernetes'],
-            strengths: parsed.strengths || ['Strong quantifiable metrics', 'Clean technology stack'],
-            improvements: parsed.improvements || ['Add more distributed consensus keywords'],
-            verdict: parsed.verdict || 'Strong candidate profile for staff-level roles.',
-          };
-        }
-      } catch (err) {
-        console.warn('Gemini ATS analysis fallback:', err);
-      }
-    }
-
-    // Heuristic fallback analysis
-    const keywords = ['TypeScript', 'React', 'Node.js', 'MongoDB', 'PostgreSQL', 'Docker', 'Redis', 'Microservices', 'AWS', 'Go'];
-    const matched = keywords.filter((k) => resumeContent.toLowerCase().includes(k.toLowerCase()));
-    const missing = keywords.filter((k) => !resumeContent.toLowerCase().includes(k.toLowerCase()));
-
-    const calculatedScore = Math.min(96, Math.max(70, 70 + matched.length * 3));
-
-    return {
-      score: calculatedScore,
-      matchingKeywords: matched,
-      missingKeywords: missing.slice(0, 3),
-      strengths: [
-        'Clear demonstration of engineering ownership and architectural decisions.',
-        'High frequency of quantifiable business results (latency reduction, cost savings).',
-        'Strong alignment with modern full stack & distributed systems paradigms.',
-      ],
-      improvements: [
-        'Incorporate explicit keywords for cloud-native observability and telemetry.',
-        'Highlight cross-functional squad leadership and technical roadmap ownership.',
-      ],
-      verdict: 'High ATS parse rate. Optimized for senior and staff engineering screening filters.',
-    };
-  },
 };
 
 function generateSmartFallbackEnhancement(type: AIOperationType, content: string): string {

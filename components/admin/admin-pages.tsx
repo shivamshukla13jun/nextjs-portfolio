@@ -10,13 +10,10 @@ import AdminEducationView from './AdminEducationView';
 import AdminCertificationsView from './AdminCertificationsView';
 import AdminServicesView from './AdminServicesView';
 import AdminBlogView from './AdminBlogView';
-import AdminResumeBuilderView from './AdminResumeBuilderView';
 import AdminFilesView from './AdminFilesView';
 import AdminAIAssistantView from './AdminAIAssistantView';
 import AdminMessagesView from './AdminMessagesView';
 import AdminSettingsView from './AdminSettingsView';
-import { SEED_RESUME } from '@/lib/db/seed-data';
-import type { Resume } from '@/types/resume';
 
 /** Fetch JSON from an API endpoint and expose a reload fn (for onUpdated). */
 function useJson<T = any>(url: string, pick: (d: any) => T): [T | null, () => Promise<void>] {
@@ -44,14 +41,12 @@ export function DashboardPage() {
   const [skills] = useJson('/api/portfolio/skills', (d) => d.skills || []);
   const [experiences] = useJson('/api/portfolio/experiences', (d) => d.experiences || []);
   const [blogs] = useJson('/api/portfolio/blogs?all=true', (d) => d.blogs || []);
-  const [resumes] = useJson('/api/resumes', (d) => d.resumes || []);
   return (
     <DashboardClient
       projects={projects || []}
       skills={skills || []}
       experiences={experiences || []}
       blogs={blogs || []}
-      resumes={resumes || []}
     />
   );
 }
@@ -95,31 +90,6 @@ export function ServicesPage() {
 export function BlogAdminPage() {
   const [blogs, load] = useJson('/api/portfolio/blogs?all=true', (d) => d.blogs || []);
   return <AdminBlogView blogs={blogs || []} onUpdated={load} />;
-}
-
-export function ResumeBuilderPage() {
-  const [resumes, loadResumes] = useJson<Resume[]>('/api/resumes', (d) => d.resumes || []);
-  const [experiences] = useJson('/api/portfolio/experiences', (d) => d.experiences || []);
-  const [projects] = useJson('/api/portfolio/projects', (d) => d.projects || []);
-  const [education] = useJson('/api/portfolio/education', (d) => d.education || []);
-  const [skills] = useJson('/api/portfolio/skills', (d) => d.skills || []);
-  const [certifications] = useJson('/api/portfolio/certifications', (d) => d.certifications || []);
-  const [profile] = useJson('/api/portfolio/profile', (d) => d.profile);
-  if (!resumes || !experiences || !projects || !education || !skills || !certifications) return null;
-  const activeResume = resumes.find((r: any) => r.isDefault) || resumes[0] || SEED_RESUME;
-  return (
-    <AdminResumeBuilderView
-      resumes={resumes}
-      activeResume={activeResume}
-      portfolioExperiences={experiences}
-      portfolioProjects={projects}
-      portfolioEducation={education}
-      portfolioSkills={skills}
-      portfolioCertifications={certifications}
-      profile={profile}
-      onUpdated={loadResumes}
-    />
-  );
 }
 
 export function SettingsPage() {

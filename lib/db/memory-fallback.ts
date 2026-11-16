@@ -7,7 +7,6 @@ import {
   SEED_CERTIFICATIONS,
   SEED_SERVICES,
   SEED_BLOGS,
-  SEED_RESUME,
   SEED_SETTINGS,
 } from './seed-data.ts';
 import bcrypt from 'bcryptjs';
@@ -24,7 +23,6 @@ import type {
   SiteSettings,
   FileRecord,
 } from '../../types/portfolio.ts';
-import type { Resume } from '../../types/resume.ts';
 import type { AIGenerationRecord } from '../../types/ai.ts';
 
 export interface StoredFile extends FileRecord {
@@ -40,7 +38,6 @@ export class MemoryStore {
   certifications: Certification[] = [...SEED_CERTIFICATIONS];
   services: Service[] = [...SEED_SERVICES];
   blogs: Blog[] = [...SEED_BLOGS];
-  resumes: Resume[] = [{ ...SEED_RESUME }];
   settings: SiteSettings = { ...SEED_SETTINGS };
   contactMessages: ContactMessage[] = [
     {
@@ -236,36 +233,6 @@ export const MemoryRepository = {
     return memoryStore.blogs.length < len;
   },
 
-  // Resumes
-  async getResumes(): Promise<Resume[]> {
-    return memoryStore.resumes;
-  },
-  async getResumeById(id: string): Promise<Resume | null> {
-    return memoryStore.resumes.find((r) => r.id === id || r.slug === id) || null;
-  },
-  async saveResume(resume: Partial<Resume> & { id?: string }): Promise<Resume> {
-    if (resume.id) {
-      const idx = memoryStore.resumes.findIndex((r) => r.id === resume.id);
-      if (idx !== -1) {
-        memoryStore.resumes[idx] = { ...memoryStore.resumes[idx], ...resume } as Resume;
-        return memoryStore.resumes[idx];
-      }
-    }
-    const newResume: Resume = {
-      ...(resume as Resume),
-      id: resume.id || `res-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    memoryStore.resumes.unshift(newResume);
-    return newResume;
-  },
-  async deleteResume(id: string): Promise<boolean> {
-    const len = memoryStore.resumes.length;
-    memoryStore.resumes = memoryStore.resumes.filter((r) => r.id !== id);
-    return memoryStore.resumes.length < len;
-  },
-
   // Settings
   async getSettings(): Promise<SiteSettings> {
     return memoryStore.settings;
@@ -340,7 +307,6 @@ export const MemoryRepository = {
       totalExperiences: memoryStore.experiences.length,
       totalBlogs: memoryStore.blogs.length,
       unreadMessages: memoryStore.contactMessages.filter((m) => !m.read).length,
-      resumeVersionsCount: memoryStore.resumes.length,
     };
   },
 };

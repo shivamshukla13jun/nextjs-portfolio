@@ -1,10 +1,8 @@
 // Full database reset: drops EVERY collection and seeds all content fresh
-// through the strict Mongoose models. The default resume is dehydrated so its
-// items land as ObjectId refs linked to the seeded documents.
+// through the strict Mongoose models.
 // Run: npm run seed
 import 'dotenv/config';
 import mongoose from 'mongoose';
-import { dehydrateResume } from '../server/repositories/portfolio.repository.ts';
 import {
   SEED_PROFILE,
   SEED_SKILLS,
@@ -14,7 +12,6 @@ import {
   SEED_CERTIFICATIONS,
   SEED_SERVICES,
   SEED_BLOGS,
-  SEED_RESUME,
   SEED_SETTINGS,
 } from '../lib/db/seed-data.ts';
 import {
@@ -26,7 +23,6 @@ import {
   CertificationModel,
   ServiceModel,
   BlogModel,
-  ResumeModel,
   SiteSettingsModel,
 } from '../server/models/all-models.ts';
 
@@ -83,10 +79,6 @@ counts.push(['blogs', SEED_BLOGS.length]);
 
 await SiteSettingsModel.create(strip(SEED_SETTINGS));
 counts.push(['sitesettings', 1]);
-
-// Resume goes through dehydrateResume -> items stored as ObjectId refs
-await ResumeModel.create(await dehydrateResume(strip(SEED_RESUME)));
-counts.push(['resumes', 1]);
 
 for (const [name, n] of counts) console.log(`  ${name}: ${n}`);
 

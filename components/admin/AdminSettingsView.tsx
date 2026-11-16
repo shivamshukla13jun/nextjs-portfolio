@@ -226,7 +226,7 @@ export default function AdminSettingsView({ settings, onUpdated }: AdminSettings
             <div className="flex items-center justify-between p-3 rounded-lg bg-slate-900/60 border border-slate-800/80">
               <div>
                 <div className="font-semibold text-white">Public Resume PDF Download</div>
-                <div className="text-slate-400 text-[11px]">Enable visitor direct print-to-PDF button on public resume view</div>
+                <div className="text-slate-400 text-[11px]">Enable the resume PDF download on the public resume page</div>
               </div>
               <button
                 type="button"

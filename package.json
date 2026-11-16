@@ -9,8 +9,7 @@
     "start": "next start -p 4000",
     "lint": "tsc --noEmit",
     "seed": "node scripts/seed.ts",
-    "db:reseed": "node scripts/reseed-db.mjs",
-    "test:resume-refs": "node scripts/test-resume-refs.mjs"
+    "db:reseed": "node scripts/reseed-db.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
